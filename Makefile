@@ -7,7 +7,7 @@ GOARCH     := amd64
 DIST       := dist
 ARCHIVE    := $(DIST)/$(PLUGIN_ID)_$(VERSION)_$(GOOS)_$(GOARCH).zip
 
-.PHONY: all build release clean vet check deploy-local
+.PHONY: all build release clean vet check
 
 all: build
 

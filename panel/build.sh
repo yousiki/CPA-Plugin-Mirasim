@@ -37,12 +37,22 @@ echo "==> installing dependencies"
 echo "==> verifying"
 (cd "$work/panel" && bun run type-check && bun test)
 
-echo "==> building"
-(cd "$work/panel" && VERSION="${UPSTREAM_REF}+mirasim" bun run build)
+# The patch hash goes into the version string so a deployed panel can be identified.
+# Without it the only post-deploy signal is "does the word mirasim appear", which is true
+# of every build including the broken ones — that is how a stale artifact once reached
+# production and crashed the quota page.
+patch_sha="$(shasum -a 256 "$patch_file" | cut -c1-8)"
+build_version="${UPSTREAM_REF}+mirasim.${patch_sha}"
+
+echo "==> building $build_version"
+(cd "$work/panel" && VERSION="$build_version" bun run build)
 
 mkdir -p "$(dirname "$out")"
 cp "$work/panel/dist/index.html" "$out"
 echo "==> wrote $out ($(wc -c <"$out" | tr -d ' ') bytes)"
+echo "==> build id: $build_version"
+echo "    verify a deployment with:"
+echo "      curl -s <base>/management.html | grep -c '$build_version'"
 cat <<'NOTE'
 
 Install it by pointing CPA at the file and stopping it from replacing it:

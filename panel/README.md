@@ -60,3 +60,22 @@ See the note printed by `build.sh`. Both halves matter: `MANAGEMENT_STATIC_PATH`
 the file, and `remote-management.disable-auto-update-panel: true` stops CPA's asset
 updater from overwriting it — the updater targets exactly that path and compares the
 file's hash against the upstream release on every startup.
+
+The panel is read per request, so replacing the file takes effect immediately; no restart
+is needed.
+
+## Verifying a deployment
+
+`build.sh` stamps the patch's hash into the version string, so the served panel states
+exactly which build it is:
+
+```bash
+curl -s <base>/management.html | grep -o 'v[0-9.]*+mirasim\.[0-9a-f]\{8\}'
+```
+
+Compare that with the build id `build.sh` printed.
+
+Do **not** verify by grepping for `mirasim`, or by byte count against a remembered
+number. Every build of this patch contains the word, so it cannot distinguish a current
+build from a stale one — a stale artifact reached production exactly that way and
+white-screened the quota page for everyone.
