@@ -1,4 +1,4 @@
-module github.com/yousiki/cpa-mirasim-plugin
+module github.com/yousiki/CPA-Plugin-Mirasim
 
 go 1.26.0
 

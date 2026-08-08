@@ -223,7 +223,7 @@ func pluginRegistration() registration {
 			Name:             "Mirasim",
 			Version:          pluginVersion,
 			Author:           "yousiki",
-			GitHubRepository: "https://github.com/yousiki/CPA-mirasim-plugin",
+			GitHubRepository: "https://github.com/yousiki/CPA-Plugin-Mirasim",
 			Logo:             pluginLogo,
 			ConfigFields: []pluginapi.ConfigField{
 				{Name: "login_url", Type: pluginapi.ConfigFieldTypeString, Description: "Mirofish auth backend base URL. Default https://admin.test.mirofish.ai (the staging host compiled into the Mirasim app)."},
