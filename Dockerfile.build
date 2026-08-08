@@ -1,0 +1,25 @@
+# Builds the plugin as a C-ABI shared library for the CLIProxyAPI container.
+#
+# The image the plugin is loaded into is debian bookworm with glibc, and the host loads
+# the library into its own process, so the toolchain and libc must match the server
+# image exactly. Building anywhere else (alpine/musl, a newer glibc) produces a library
+# that either fails to dlopen or crashes the proxy.
+FROM golang:1.26-bookworm AS build
+
+WORKDIR /src
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY *.go ./
+
+RUN CGO_ENABLED=1 GOOS=linux go build \
+    -buildmode=c-shared \
+    -trimpath \
+    -ldflags="-s -w" \
+    -o /out/mirasim.so . \
+ && rm -f /out/mirasim.h
+
+# `docker build --target artifact --output type=local,dest=dist` drops mirasim.so into dist/.
+FROM scratch AS artifact
+COPY --from=build /out/mirasim.so /mirasim.so

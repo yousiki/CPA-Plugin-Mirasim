@@ -1,0 +1,33 @@
+# Throwaway CLIProxyAPI stack for developing this plugin.
+#
+# Deliberately unlike the production stack: no cloudflared tunnel, no watchtower, no
+# postgres store, and the port is bound to loopback only. Config and auth files are
+# plain files on disk so they can be read and edited directly while iterating.
+#
+# Copy next to the production compose file (paths below are relative to it) and run:
+#   docker compose -f docker-compose.local.yaml -p mirasim-local up -d
+#
+# The API is then on 127.0.0.1:18317 with management key `localtest`. Reach it from a
+# workstation with: ssh -L 18317:127.0.0.1:18317 <host>
+services:
+  api:
+    image: eceasy/cli-proxy-api:latest
+    command: ["./CLIProxyAPI", "-config", "/cpa/config/config.yaml"]
+    ports:
+      - "127.0.0.1:18317:8317"
+    environment:
+      # Serve the locally built management panel (upstream + the mirasim quota adapter)
+      # instead of the release asset. Pair with remote-management.disable-auto-update-panel
+      # in config.yaml, or CPA will replace it with the upstream build.
+      MANAGEMENT_STATIC_PATH: /cpa/panel/management.html
+    volumes:
+      # A directory, not a single file: the management API rewrites config.yaml with an
+      # atomic rename, which cannot work across a bind-mounted file.
+      - ./local/config:/cpa/config
+      - ./local/auths:/cpa/auths
+      - ./local/panel:/cpa/panel
+      - ./local/plugins:/CLIProxyAPI/plugins
+      - ./local/logs:/CLIProxyAPI/logs
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"
+    restart: unless-stopped

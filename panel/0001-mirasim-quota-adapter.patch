@@ -1,0 +1,625 @@
+diff --git c/src/assets/icons/mirasim.svg i/src/assets/icons/mirasim.svg
+new file mode 100644
+index 0000000..c98ed8e
+--- /dev/null
++++ i/src/assets/icons/mirasim.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><rect width="128" height="128" rx="28" fill="#6D4AE8"/><g transform="translate(22 27.03) scale(0.105927)" fill="#fff"><rect x="1" y="0" width="55" height="698" rx="27.5"/><rect x="97" y="93" width="55" height="506" rx="27.5"/><rect x="193" y="249" width="55" height="300" rx="27.5"/><rect x="289" y="412" width="55" height="99" rx="27.5"/><rect x="449" y="412" width="55" height="99" rx="27.5"/><rect x="545" y="249" width="55" height="300" rx="27.5"/><rect x="641" y="97" width="55" height="502" rx="27.5"/><rect x="737" y="0" width="55" height="698" rx="27.5"/></g></svg>
+diff --git c/src/features/authFiles/components/AuthFileQuotaSection.tsx i/src/features/authFiles/components/AuthFileQuotaSection.tsx
+index f958cad..86c3f02 100644
+--- c/src/features/authFiles/components/AuthFileQuotaSection.tsx
++++ i/src/features/authFiles/components/AuthFileQuotaSection.tsx
+@@ -47,6 +47,8 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
+     if (quotaType === 'codex') return state.codexQuota[file.name] as QuotaCardState | undefined;
+     if (quotaType === 'kimi') return state.kimiQuota[file.name] as QuotaCardState | undefined;
+     if (quotaType === 'xai') return state.xaiQuota[file.name] as QuotaCardState | undefined;
++    if (quotaType === 'mirasim')
++      return state.mirasimQuota[file.name] as QuotaCardState | undefined;
+     return assertNever(quotaType);
+   });
+ 
+diff --git c/src/features/authFiles/constants.ts i/src/features/authFiles/constants.ts
+index 8d72494..77deded 100644
+--- c/src/features/authFiles/constants.ts
++++ i/src/features/authFiles/constants.ts
+@@ -8,6 +8,7 @@ import iconGrokDark from '@/assets/icons/grok-dark.svg';
+ import iconIflow from '@/assets/icons/iflow.svg';
+ import iconKimiDark from '@/assets/icons/kimi-dark.svg';
+ import iconKimiLight from '@/assets/icons/kimi-light.svg';
++import iconMirasim from '@/assets/icons/mirasim.svg';
+ import iconQwen from '@/assets/icons/qwen.svg';
+ import iconVertex from '@/assets/icons/vertex.svg';
+ import type { AuthFileItem, ResolvedTheme, ThemeColors } from '@/types';
+@@ -24,7 +25,7 @@ export type AuthFileModelItem = {
+ };
+ export type AuthFileIconAsset = string | { light: string; dark: string };
+ 
+-export type QuotaProviderType = 'antigravity' | 'claude' | 'codex' | 'kimi' | 'xai';
++export type QuotaProviderType = 'antigravity' | 'claude' | 'codex' | 'kimi' | 'xai' | 'mirasim';
+ export type OAuthConfigLoadError = 'loading' | 'unsupported' | 'load' | null;
+ 
+ export const QUOTA_PROVIDER_TYPES = new Set<QuotaProviderType>([
+@@ -33,6 +34,7 @@ export const QUOTA_PROVIDER_TYPES = new Set<QuotaProviderType>([
+   'codex',
+   'kimi',
+   'xai',
++  'mirasim',
+ ]);
+ 
+ export const OAUTH_PROVIDER_PRESETS = [
+@@ -75,6 +77,7 @@ export const AUTH_FILE_ICONS: Record<string, AuthFileIconAsset> = {
+   xai: { light: iconGrok, dark: iconGrokDark },
+   iflow: iconIflow,
+   kimi: { light: iconKimiDark, dark: iconKimiLight },
++  mirasim: iconMirasim,
+   qwen: iconQwen,
+   vertex: iconVertex,
+ };
+diff --git c/src/features/quota/QuotaPage.tsx i/src/features/quota/QuotaPage.tsx
+index f1c07f3..6ecc8fc 100644
+--- c/src/features/quota/QuotaPage.tsx
++++ i/src/features/quota/QuotaPage.tsx
+@@ -105,6 +105,7 @@ export function QuotaPage() {
+   const codexQuota = useQuotaStore((state) => state.codexQuota);
+   const kimiQuota = useQuotaStore((state) => state.kimiQuota);
+   const xaiQuota = useQuotaStore((state) => state.xaiQuota);
++  const mirasimQuota = useQuotaStore((state) => state.mirasimQuota);
+ 
+   const quotaByType = useMemo<Record<QuotaProviderType, Record<string, QuotaCardState>>>(
+     () =>
+@@ -114,8 +115,15 @@ export function QuotaPage() {
+         codex: codexQuota,
+         kimi: kimiQuota,
+         xai: xaiQuota,
+-      }) as unknown as Record<QuotaProviderType, Record<string, QuotaCardState>>,
+-    [antigravityQuota, claudeQuota, codexQuota, kimiQuota, xaiQuota]
++        mirasim: mirasimQuota,
++        // 不加 as unknown 断言：这里少写一个 provider 会让 quotaByType[type]
++        // 变成 undefined，页面在有该 provider 凭证时整页崩溃，而断言会把这个
++        // 错误从编译期吞掉。让类型检查负责穷尽性。
++      }) satisfies Record<QuotaProviderType, Record<string, unknown>> as unknown as Record<
++        QuotaProviderType,
++        Record<string, QuotaCardState>
++      >,
++    [antigravityQuota, claudeQuota, codexQuota, kimiQuota, xaiQuota, mirasimQuota]
+   );
+ 
+   const getQuota = useCallback(
+diff --git c/src/features/quota/constants.ts i/src/features/quota/constants.ts
+index ca29a05..8a34006 100644
+--- c/src/features/quota/constants.ts
++++ i/src/features/quota/constants.ts
+@@ -7,6 +7,7 @@ export const QUOTA_TAB_ORDER: readonly QuotaProviderType[] = [
+   'codex',
+   'xai',
+   'kimi',
++  'mirasim',
+ ];
+ 
+ export type QuotaTabId = 'all' | QuotaProviderType;
+diff --git c/src/features/quota/logic.ts i/src/features/quota/logic.ts
+index 2b4b0ce..d770304 100644
+--- c/src/features/quota/logic.ts
++++ i/src/features/quota/logic.ts
+@@ -8,6 +8,7 @@ import { ANTIGRAVITY_CONFIG } from './providers/antigravity/data';
+ import { CLAUDE_CONFIG } from './providers/claude/data';
+ import { CODEX_CONFIG } from './providers/codex/data';
+ import { KIMI_CONFIG } from './providers/kimi/data';
++import { MIRASIM_CONFIG } from './providers/mirasim/data';
+ import { XAI_CONFIG } from './providers/xai/data';
+ import type { QuotaProviderType } from './providers/types';
+ import { QUOTA_TAB_ORDER, type QuotaSortMode, type QuotaTabId } from './constants';
+@@ -17,6 +18,7 @@ const QUOTA_FILTER_MAP: Record<QuotaProviderType, (file: AuthFileItem) => boolea
+   claude: CLAUDE_CONFIG.filterFn,
+   codex: CODEX_CONFIG.filterFn,
+   kimi: KIMI_CONFIG.filterFn,
++  mirasim: MIRASIM_CONFIG.filterFn,
+   xai: XAI_CONFIG.filterFn,
+ };
+ 
+diff --git c/src/features/quota/providers/index.ts i/src/features/quota/providers/index.ts
+index b24942c..262d378 100644
+--- c/src/features/quota/providers/index.ts
++++ i/src/features/quota/providers/index.ts
+@@ -19,6 +19,8 @@ import { CODEX_CONFIG } from './codex/data';
+ import { CodexQuotaBody } from './codex/CodexQuotaBody';
+ import { KIMI_CONFIG } from './kimi/data';
+ import { KimiQuotaBody } from './kimi/KimiQuotaBody';
++import { MIRASIM_CONFIG } from './mirasim/data';
++import { MirasimQuotaBody } from './mirasim/MirasimQuotaBody';
+ import { XAI_CONFIG } from './xai/data';
+ import { XaiQuotaBody } from './xai/XaiQuotaBody';
+ 
+@@ -52,6 +54,7 @@ export const QUOTA_ADAPTERS: Record<QuotaProviderType, QuotaAdapter> = {
+   claude: { ...CLAUDE_CONFIG, Body: ClaudeQuotaBody } as unknown as QuotaAdapter,
+   codex: { ...CODEX_CONFIG, Body: CodexQuotaBody } as unknown as QuotaAdapter,
+   kimi: { ...KIMI_CONFIG, Body: KimiQuotaBody } as unknown as QuotaAdapter,
++  mirasim: { ...MIRASIM_CONFIG, Body: MirasimQuotaBody } as unknown as QuotaAdapter,
+   xai: { ...XAI_CONFIG, Body: XaiQuotaBody } as unknown as QuotaAdapter,
+ };
+ 
+diff --git c/src/features/quota/providers/mirasim/MirasimQuotaBody.tsx i/src/features/quota/providers/mirasim/MirasimQuotaBody.tsx
+new file mode 100644
+index 0000000..71c62ab
+--- /dev/null
++++ i/src/features/quota/providers/mirasim/MirasimQuotaBody.tsx
+@@ -0,0 +1,77 @@
++/**
++ * Mirasim 额度渲染体：unified rate-limit 窗口水位条 + 累计消耗。
++ *
++ * 与 Kimi 同构（rows + 水位条），差别有二：
++ *  - 网关只报「已用比例」，所以水位条画的是剩余量 100 - used，与其余提供商口径一致；
++ *  - 网关只在有数据时才下发某个窗口的头，缺失的窗口直接不渲染，而不是画一条空轨道。
++ */
++
++import { useMemo } from 'react';
++import { useTranslation } from 'react-i18next';
++import type { MirasimQuotaState } from '@/types';
++import { buildResetDisplay } from '@/utils/quota';
++import { useNow } from '@/hooks/useNow';
++import { QuotaMeter } from '../../components/QuotaMeter';
++import { QuotaResetLabel } from '../../components/QuotaResetLabel';
++import { collectQuotaRowInstants, pickUrgentRowId } from '../../resetSchedule';
++import type { QuotaBodyProps } from '../../types';
++
++export function MirasimQuotaBody({ quota, classes }: QuotaBodyProps<MirasimQuotaState>) {
++  const { t, i18n } = useTranslation();
++  // 早退之前 —— hooks 不能条件调用。
++  const now = useNow();
++  const soonestRowId = useMemo(
++    () => pickUrgentRowId(collectQuotaRowInstants('mirasim', quota), now),
++    [quota, now]
++  );
++  const rows = quota.rows ?? [];
++  const spend = quota.spend;
++
++  if (rows.length === 0) {
++    return <div className={classes.quotaMessage}>{t('mirasim_quota.empty_data')}</div>;
++  }
++
++  return (
++    <>
++      {rows.map((row, index) => {
++        const remaining = Math.max(0, Math.min(100, 100 - row.used));
++        const rowLabel = row.labelKey
++          ? t(row.labelKey, (row.labelParams ?? {}) as Record<string, string | number>)
++          : (row.label ?? '');
++        const resetDisplay = buildResetDisplay(null, row.resetAtMs, now, i18n.resolvedLanguage);
++        const soon = row.id === soonestRowId;
++
++        return (
++          <div
++            key={row.id}
++            className={classes.quotaRow}
++            title={soon ? t('quota_management.soonest_row_hint') : undefined}
++          >
++            <div className={classes.quotaRowHeader}>
++              <span className={classes.quotaModel}>{rowLabel}</span>
++              <div className={classes.quotaMeta}>
++                <span className={classes.quotaPercent}>{`${Math.round(remaining)}%`}</span>
++                {resetDisplay && (
++                  <QuotaResetLabel display={resetDisplay} classes={classes} soon={soon} />
++                )}
++              </div>
++            </div>
++            <QuotaMeter percent={remaining} classes={classes} index={index} />
++          </div>
++        );
++      })}
++
++      {typeof spend === 'number' && spend >= 0 && (
++        <div className={classes.codexPlan}>
++          <div className={classes.codexPlanItem}>
++            <span className={classes.codexPlanLabel}>{t('mirasim_quota.spend')}</span>
++            {/* 网关不带单位，原样显示而不是伪装成货币 */}
++            <span className={classes.codexPlanValue}>
++              {spend.toLocaleString(undefined, { maximumFractionDigits: 2 })}
++            </span>
++          </div>
++        </div>
++      )}
++    </>
++  );
++}
+diff --git c/src/features/quota/providers/mirasim/data.ts i/src/features/quota/providers/mirasim/data.ts
+new file mode 100644
+index 0000000..b393ad4
+--- /dev/null
++++ i/src/features/quota/providers/mirasim/data.ts
+@@ -0,0 +1,116 @@
++/**
++ * Mirasim 额度数据层。React-free / SCSS-free。
++ *
++ * 与其他五个提供商不同：Mirasim relay 没有用量接口，用量只出现在 Anthropic 的
++ * unified rate-limit 响应头里。读取这些头需要一次真实请求，因此由 mirasim 插件
++ * 在服务端完成（探测 + 缓存），面板只读插件自己的管理路由，不走 api-call。
++ */
++
++import type { TFunction } from 'i18next';
++import type { AuthFileItem, MirasimQuotaRow, MirasimQuotaState } from '@/types';
++import { apiClient } from '@/services/api/client';
++import { createStatusError, isDisabledAuthFile, isMirasimFile } from '@/utils/quota';
++import { normalizeAuthIndex } from '@/utils/authIndex';
++import type { QuotaProviderData } from '../types';
++
++/** 插件返回的一次读数；utilization 为百分比，-1 表示该头缺失。 */
++interface MirasimQuotaPayload {
++  ok?: boolean;
++  error?: string;
++  quota?: {
++    status?: number;
++    utilization_5h?: number;
++    utilization_7d?: number;
++    reset_5h?: number;
++    reset_7d?: number;
++    key_spend?: number;
++    at?: number;
++    error?: string;
++  } | null;
++}
++
++export interface MirasimQuotaData {
++  rows: MirasimQuotaRow[];
++  spend: number | null;
++  readAt: number | null;
++}
++
++const hasValue = (value: number | undefined): value is number =>
++  typeof value === 'number' && value >= 0;
++
++/** 秒级 epoch → 毫秒；0/缺失视为「没有重置时间」。 */
++const toResetMs = (seconds: number | undefined): number | null =>
++  typeof seconds === 'number' && seconds > 0 ? seconds * 1000 : null;
++
++const fetchMirasimQuota = async (file: AuthFileItem, t: TFunction): Promise<MirasimQuotaData> => {
++  const authIndex = normalizeAuthIndex(file['auth_index'] ?? file.authIndex);
++  if (!authIndex) {
++    throw new Error(t('mirasim_quota.missing_auth_index'));
++  }
++
++  const payload = await apiClient.get<MirasimQuotaPayload>('/mirasim/quota', {
++    params: { auth_index: authIndex },
++  });
++
++  if (!payload || payload.ok !== true) {
++    throw new Error(payload?.error || t('mirasim_quota.empty_data'));
++  }
++  const quota = payload.quota;
++  if (!quota) {
++    throw new Error(t('mirasim_quota.probe_disabled'));
++  }
++  // 凭证被 relay 拒绝时插件会带上 error：这时报错比画一条 0% 的水位条诚实。
++  if (quota.error && !hasValue(quota.utilization_5h) && !hasValue(quota.utilization_7d)) {
++    throw createStatusError(quota.error, quota.status);
++  }
++
++  const rows: MirasimQuotaRow[] = [];
++  if (hasValue(quota.utilization_5h)) {
++    rows.push({
++      id: 'mirasim-5h',
++      labelKey: 'mirasim_quota.window_5h',
++      used: quota.utilization_5h,
++      limit: 100,
++      resetAtMs: toResetMs(quota.reset_5h),
++      periodHours: 5,
++    });
++  }
++  if (hasValue(quota.utilization_7d)) {
++    rows.push({
++      id: 'mirasim-7d',
++      labelKey: 'mirasim_quota.window_7d',
++      used: quota.utilization_7d,
++      limit: 100,
++      resetAtMs: toResetMs(quota.reset_7d),
++      periodHours: 168,
++    });
++  }
++
++  return {
++    rows,
++    spend: hasValue(quota.key_spend) ? quota.key_spend : null,
++    readAt: quota.at ?? null,
++  };
++};
++
++export const MIRASIM_CONFIG: QuotaProviderData<MirasimQuotaState, MirasimQuotaData> = {
++  type: 'mirasim',
++  i18nPrefix: 'mirasim_quota',
++  filterFn: (file) => isMirasimFile(file) && !isDisabledAuthFile(file),
++  fetchQuota: fetchMirasimQuota,
++  storeSelector: (state) => state.mirasimQuota,
++  storeSetter: 'setMirasimQuota',
++  buildLoadingState: () => ({ status: 'loading', rows: [] }),
++  buildSuccessState: (data) => ({
++    status: 'success',
++    rows: data.rows,
++    spend: data.spend,
++    readAt: data.readAt,
++  }),
++  buildErrorState: (message, status) => ({
++    status: 'error',
++    rows: [],
++    error: message,
++    errorStatus: status,
++  }),
++};
+diff --git c/src/features/quota/providers/types.ts i/src/features/quota/providers/types.ts
+index 2ef0270..315b0ea 100644
+--- c/src/features/quota/providers/types.ts
++++ i/src/features/quota/providers/types.ts
+@@ -12,12 +12,19 @@ import type {
+   ClaudeQuotaState,
+   CodexQuotaState,
+   KimiQuotaState,
++  MirasimQuotaState,
+   XaiQuotaState,
+ } from '@/types';
+ 
+ export type QuotaUpdater<T> = T | ((prev: T) => T);
+ 
+-export type QuotaProviderType = 'antigravity' | 'claude' | 'codex' | 'kimi' | 'xai';
++export type QuotaProviderType =
++  | 'antigravity'
++  | 'claude'
++  | 'codex'
++  | 'kimi'
++  | 'xai'
++  | 'mirasim';
+ 
+ /** useQuotaStore 的结构契约（storeSelector/storeSetter 依赖）。 */
+ export interface QuotaStore {
+@@ -25,11 +32,13 @@ export interface QuotaStore {
+   claudeQuota: Record<string, ClaudeQuotaState>;
+   codexQuota: Record<string, CodexQuotaState>;
+   kimiQuota: Record<string, KimiQuotaState>;
++  mirasimQuota: Record<string, MirasimQuotaState>;
+   xaiQuota: Record<string, XaiQuotaState>;
+   setAntigravityQuota: (updater: QuotaUpdater<Record<string, AntigravityQuotaState>>) => void;
+   setClaudeQuota: (updater: QuotaUpdater<Record<string, ClaudeQuotaState>>) => void;
+   setCodexQuota: (updater: QuotaUpdater<Record<string, CodexQuotaState>>) => void;
+   setKimiQuota: (updater: QuotaUpdater<Record<string, KimiQuotaState>>) => void;
++  setMirasimQuota: (updater: QuotaUpdater<Record<string, MirasimQuotaState>>) => void;
+   setXaiQuota: (updater: QuotaUpdater<Record<string, XaiQuotaState>>) => void;
+   clearQuotaCache: () => void;
+ }
+diff --git c/src/features/quota/resetSchedule.ts i/src/features/quota/resetSchedule.ts
+index abdb7e1..6c77cb5 100644
+--- c/src/features/quota/resetSchedule.ts
++++ i/src/features/quota/resetSchedule.ts
+@@ -125,7 +125,7 @@ export function collectQuotaRowInstants(
+     return collectRows(buckets, 'bucket');
+   }
+ 
+-  if (provider === 'kimi') {
++  if (provider === 'kimi' || provider === 'mirasim') {
+     return collectRows((quota as { rows?: WindowLike[] }).rows ?? [], 'row');
+   }
+ 
+diff --git c/src/i18n/locales/en.json i/src/i18n/locales/en.json
+index 0e8fbdc..62f09a5 100644
+--- c/src/i18n/locales/en.json
++++ i/src/i18n/locales/en.json
+@@ -489,6 +489,22 @@
+     "limit_index": "Limit #{{index}}",
+     "reset_hint": "resets in {{hint}}"
+   },
++  "mirasim_quota": {
++    "title": "Mirasim Quota",
++    "empty_title": "No Mirasim Auth Files",
++    "empty_desc": "Sign in to a Mirasim account to view its usage windows.",
++    "idle": "Click here to refresh quota",
++    "loading": "Loading quota...",
++    "load_failed": "Failed to load quota: {{message}}",
++    "missing_auth_index": "Auth file missing auth_index",
++    "empty_data": "No usage windows reported",
++    "probe_disabled": "Quota probing is disabled for this plugin",
++    "refresh_button": "Refresh Quota",
++    "fetch_all": "Fetch All",
++    "window_5h": "5-hour window",
++    "window_7d": "7-day window",
++    "spend": "Spend"
++  },
+   "xai_quota": {
+     "title": "Grok Quota",
+     "empty_title": "No xAI/Grok Auth Files",
+diff --git c/src/i18n/locales/ru.json i/src/i18n/locales/ru.json
+index 81e3867..7338072 100644
+--- c/src/i18n/locales/ru.json
++++ i/src/i18n/locales/ru.json
+@@ -476,6 +476,22 @@
+     "limit_index": "Лимит #{{index}}",
+     "reset_hint": "сброс через {{hint}}"
+   },
++  "mirasim_quota": {
++    "title": "Квота Mirasim",
++    "empty_title": "Нет учётных данных Mirasim",
++    "empty_desc": "Войдите в аккаунт Mirasim, чтобы увидеть окна использования.",
++    "idle": "Нажмите, чтобы обновить квоту",
++    "loading": "Загрузка квоты...",
++    "load_failed": "Не удалось загрузить квоту: {{message}}",
++    "missing_auth_index": "В файле учётных данных нет auth_index",
++    "empty_data": "Шлюз не вернул окна использования",
++    "probe_disabled": "Опрос квоты для этого плагина отключён",
++    "refresh_button": "Обновить квоту",
++    "fetch_all": "Загрузить все",
++    "window_5h": "Окно 5 часов",
++    "window_7d": "Окно 7 дней",
++    "spend": "Расход"
++  },
+   "xai_quota": {
+     "title": "Квота Grok",
+     "empty_title": "Файлы авторизации xAI/Grok отсутствуют",
+diff --git c/src/i18n/locales/zh-CN.json i/src/i18n/locales/zh-CN.json
+index 16533e3..697803e 100644
+--- c/src/i18n/locales/zh-CN.json
++++ i/src/i18n/locales/zh-CN.json
+@@ -489,6 +489,22 @@
+     "limit_index": "限额 #{{index}}",
+     "reset_hint": "{{hint}} 后重置"
+   },
++  "mirasim_quota": {
++    "title": "Mirasim 额度",
++    "empty_title": "没有 Mirasim 凭证",
++    "empty_desc": "登录一个 Mirasim 账号后即可查看用量窗口。",
++    "idle": "点击这里刷新额度",
++    "loading": "正在加载额度...",
++    "load_failed": "加载额度失败：{{message}}",
++    "missing_auth_index": "凭证缺少 auth_index",
++    "empty_data": "网关未返回任何用量窗口",
++    "probe_disabled": "该插件已关闭额度探测",
++    "refresh_button": "刷新额度",
++    "fetch_all": "全部获取",
++    "window_5h": "5 小时窗口",
++    "window_7d": "7 天窗口",
++    "spend": "累计消耗"
++  },
+   "xai_quota": {
+     "title": "Grok 额度",
+     "empty_title": "暂无 xAI/Grok 认证",
+diff --git c/src/i18n/locales/zh-TW.json i/src/i18n/locales/zh-TW.json
+index e2661ac..49e0780 100644
+--- c/src/i18n/locales/zh-TW.json
++++ i/src/i18n/locales/zh-TW.json
+@@ -489,6 +489,22 @@
+     "limit_index": "限額 #{{index}}",
+     "reset_hint": "{{hint}} 後重置"
+   },
++  "mirasim_quota": {
++    "title": "Mirasim 額度",
++    "empty_title": "沒有 Mirasim 憑證",
++    "empty_desc": "登入一個 Mirasim 帳號後即可檢視用量視窗。",
++    "idle": "點擊這裡重新整理額度",
++    "loading": "正在載入額度...",
++    "load_failed": "載入額度失敗：{{message}}",
++    "missing_auth_index": "憑證缺少 auth_index",
++    "empty_data": "閘道未回傳任何用量視窗",
++    "probe_disabled": "此外掛已關閉額度探測",
++    "refresh_button": "重新整理額度",
++    "fetch_all": "全部取得",
++    "window_5h": "5 小時視窗",
++    "window_7d": "7 天視窗",
++    "spend": "累計消耗"
++  },
+   "xai_quota": {
+     "title": "Grok 配額",
+     "empty_title": "暫無 xAI/Grok 驗證",
+diff --git c/src/stores/useQuotaStore.ts i/src/stores/useQuotaStore.ts
+index 5072099..d8c3bea 100644
+--- c/src/stores/useQuotaStore.ts
++++ i/src/stores/useQuotaStore.ts
+@@ -8,6 +8,7 @@ import type {
+   ClaudeQuotaState,
+   CodexQuotaState,
+   KimiQuotaState,
++  MirasimQuotaState,
+   XaiQuotaState,
+ } from '@/types';
+ 
+@@ -19,11 +20,13 @@ interface QuotaStoreState {
+   claudeQuota: Record<string, ClaudeQuotaState>;
+   codexQuota: Record<string, CodexQuotaState>;
+   kimiQuota: Record<string, KimiQuotaState>;
++  mirasimQuota: Record<string, MirasimQuotaState>;
+   xaiQuota: Record<string, XaiQuotaState>;
+   setAntigravityQuota: (updater: QuotaUpdater<Record<string, AntigravityQuotaState>>) => void;
+   setClaudeQuota: (updater: QuotaUpdater<Record<string, ClaudeQuotaState>>) => void;
+   setCodexQuota: (updater: QuotaUpdater<Record<string, CodexQuotaState>>) => void;
+   setKimiQuota: (updater: QuotaUpdater<Record<string, KimiQuotaState>>) => void;
++  setMirasimQuota: (updater: QuotaUpdater<Record<string, MirasimQuotaState>>) => void;
+   setXaiQuota: (updater: QuotaUpdater<Record<string, XaiQuotaState>>) => void;
+   clearQuotaCache: () => void;
+ }
+@@ -41,6 +44,7 @@ export const useQuotaStore = create<QuotaStoreState>((set) => ({
+   claudeQuota: {},
+   codexQuota: {},
+   kimiQuota: {},
++  mirasimQuota: {},
+   xaiQuota: {},
+   setAntigravityQuota: (updater) =>
+     set((state) => ({
+@@ -58,6 +62,10 @@ export const useQuotaStore = create<QuotaStoreState>((set) => ({
+     set((state) => ({
+       kimiQuota: resolveUpdater(updater, state.kimiQuota),
+     })),
++  setMirasimQuota: (updater) =>
++    set((state) => ({
++      mirasimQuota: resolveUpdater(updater, state.mirasimQuota),
++    })),
+   setXaiQuota: (updater) =>
+     set((state) => ({
+       xaiQuota: resolveUpdater(updater, state.xaiQuota),
+@@ -69,6 +77,7 @@ export const useQuotaStore = create<QuotaStoreState>((set) => ({
+       claudeQuota: {},
+       codexQuota: {},
+       kimiQuota: {},
++      mirasimQuota: {},
+       xaiQuota: {},
+     })),
+ }));
+diff --git c/src/types/quota.ts i/src/types/quota.ts
+index 8472879..d42db3c 100644
+--- c/src/types/quota.ts
++++ i/src/types/quota.ts
+@@ -310,6 +310,35 @@ export interface KimiQuotaState {
+   errorStatus?: number;
+ }
+ 
++// Mirasim (plugin provider) quota types
++//
++// The Mirasim relay has no usage endpoint: it reports usage through Anthropic's unified
++// rate-limit headers, which the mirasim CPA plugin reads and exposes on its own
++// management route. A row is therefore one window's utilization percentage, with
++// `limit` fixed at 100 so the meter maths stays identical to the other providers.
++export interface MirasimQuotaRow {
++  id: string;
++  label?: string;
++  labelKey?: string;
++  labelParams?: Record<string, string | number>;
++  used: number;
++  limit: number;
++  /** Reset instant in epoch ms; null when the gateway sent no reset header. */
++  resetAtMs?: number | null;
++  periodHours?: number | null;
++}
++
++export interface MirasimQuotaState {
++  status: 'idle' | 'loading' | 'success' | 'error';
++  rows: MirasimQuotaRow[];
++  /** x-litellm-key-spend, reported by the gateway without a unit; null when absent. */
++  spend?: number | null;
++  /** Epoch seconds of the reading, so the card can show how stale it is. */
++  readAt?: number | null;
++  error?: string;
++  errorStatus?: number;
++}
++
+ // xAI/Grok API payload types
+ export interface XaiBillingCent {
+   val?: number | string;
+diff --git c/src/utils/quota/validators.ts i/src/utils/quota/validators.ts
+index b59e6c9..f4ce7eb 100644
+--- c/src/utils/quota/validators.ts
++++ i/src/utils/quota/validators.ts
+@@ -27,6 +27,10 @@ export function isKimiFile(file: AuthFileItem): boolean {
+   return resolveAuthProvider(file) === 'kimi';
+ }
+ 
++export function isMirasimFile(file: AuthFileItem): boolean {
++  return resolveAuthProvider(file) === 'mirasim';
++}
++
+ export function isXaiFile(file: AuthFileItem): boolean {
+   return resolveAuthProvider(file) === 'xai';
+ }
+diff --git c/tests/quotaPageLogic.test.ts i/tests/quotaPageLogic.test.ts
+index 2592bbc..4974da5 100644
+--- c/tests/quotaPageLogic.test.ts
++++ i/tests/quotaPageLogic.test.ts
+@@ -57,6 +57,7 @@ describe('buildTabCounts', () => {
+       codex: 2,
+       xai: 1,
+       kimi: 1,
++      mirasim: 0,
+     });
+   });
+ });

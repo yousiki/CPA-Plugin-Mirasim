@@ -1,0 +1,34 @@
+# Local development config for the mirasim plugin. Not for production.
+host: ""
+port: 8317
+
+remote-management:
+  # Loopback-only publish, but the panel is still reached through an SSH tunnel, which
+  # arrives as a non-local address.
+  allow-remote: true
+  secret-key: "localtest"
+  # The panel served here is a local build carrying the mirasim quota adapter; without
+  # this CPA would periodically replace it with the upstream release asset.
+  disable-auto-update-panel: true
+
+auth-dir: "/cpa/auths"
+
+api-keys:
+  - "sk-local-mirasim-test"
+
+debug: true
+
+plugins:
+  enabled: true
+  dir: "plugins"
+  configs:
+    mirasim:
+      enabled: true
+      priority: 1
+      # What the panel opens after clicking Login. With an SSH tunnel on the same port
+      # this resolves from the workstation browser.
+      public_base_url: "http://127.0.0.1:18317"
+      console_token: "localconsole"
+      quota_probe: true
+      # Short on purpose so a rotation can be observed within one test session.
+      refresh_interval_seconds: 1500
