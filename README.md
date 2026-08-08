@@ -148,20 +148,61 @@ make check      # vet, and confirm config.go and registry.json agree on the vers
 
 ## Install
 
-Publish a GitHub release whose tag is the version, with the two assets `make release`
-produces, then point CPA at this repository's `registry.json`:
+This plugin is distributed internally: the repository stays private and no artifacts are
+published. `make release` produces a zip in the layout CPA's plugin store expects, but
+nothing consumes it today — deployment is a file copy.
+
+```bash
+make build                       # dist/mirasim.so, linux/amd64
+scp dist/mirasim.so <host>:<stack>/plugins/linux/amd64/mirasim.so
+```
+
+CPA discovers `<plugins-dir>/<GOOS>/<GOARCH>/*.so` and falls back to `<plugins-dir>`.
+Enable it in the config:
 
 ```yaml
 plugins:
-  store-sources:
-    - "https://raw.githubusercontent.com/yousiki/CPA-mirasim-plugin/main/registry.json"
+  enabled: true
+  dir: "plugins"
+  configs:
+    mirasim:
+      enabled: true
+      priority: 1
+      public_base_url: "https://api.example.com"
+      console_token: "<a long random string>"
 ```
 
-The plugin then appears in the panel's Plugin Store and installs to
-`plugins/linux/amd64/mirasim-v<version>.so`. A private repository works too, via
-`plugins.store-auth` with `type: github-token` and `token-env`.
+**With a Postgres store, do not edit `config.yaml` on disk.** Postgres is authoritative:
+`Bootstrap` syncs the database over the local mirror on every start, so a file edit is
+reverted at the next restart — silently, because the process that reverts it is the same
+one you just restarted. Write config through `PUT /v0/management/config.yaml`, which
+persists to the database. The same applies to credentials: upload them through
+`POST /v0/management/auth-files` rather than dropping files into the mirrored auth
+directory.
 
-To install by hand instead, drop `mirasim.so` into `<plugins-dir>/linux/amd64/`.
+## Migrating from mirasim-sidecar
+
+The sidecar holds each account's refresh token in its SQLite state; the plugin needs
+nothing else. Refresh tokens rotate but the previous one stays valid, so minting a fresh
+pair for the plugin does not disturb a still-running sidecar and the two can overlap
+during the cutover.
+
+Order matters: **stop the sidecar first**. It self-heals missing credentials, so deleting
+its `claude-api-key` entries while it runs just means it recreates them on the next cycle.
+
+1. Migrate the accounts — for each row in the sidecar's `accounts` table, exchange the
+   refresh token at `POST {login}/auth/refresh` and upload
+   `mirasim-<email>.json` via `POST /v0/management/auth-files`.
+2. Stop the sidecar.
+3. Replace the `claude-api-key` list with the entries that do *not* point at the relay
+   (`PUT` takes a bare array and replaces the whole list; `auth-index` is server-computed
+   and must not be sent back).
+4. Confirm a request is served by a plugin credential: `/v1/models` should list the ids
+   under `owned_by: mirasim`, and the credential's `success` counter in
+   `GET /v0/management/auth-files` should advance. Do not use `claude-opus-4-8` for this —
+   Claude OAuth credentials advertise that name too, so it proves nothing.
+5. Remove the sidecar service. Keep its volume until the plugin has run through a few
+   refresh cycles; it is the only rollback path that avoids re-login.
 
 ## Local development stack
 

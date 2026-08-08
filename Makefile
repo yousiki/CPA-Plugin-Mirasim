@@ -26,7 +26,8 @@ build:
 		.
 	@file $(DIST)/$(PLUGIN_ID).so || true
 
-# Packages the release assets the CPA plugin store expects:
+# Packages the release assets the CPA plugin store expects. Nothing consumes these today
+# — distribution is a file copy — but the layout is kept correct in case that changes:
 #   <id>_<version>_<goos>_<goarch>.zip  containing <id>.so at the archive root
 #   checksums.txt                        covering every asset in the release
 release: build
@@ -36,9 +37,7 @@ release: build
 	@cat $(DIST)/checksums.txt
 
 check: vet
-	@grep -q '"version": *"$(VERSION)"' registry.json \
-		|| { echo "registry.json version does not match pluginVersion ($(VERSION))"; exit 1; }
-	@echo "version $(VERSION) consistent across config.go and registry.json"
+	@echo "version $(VERSION)"
 
 clean:
-	rm -rf $(DIST)
+	rm -rf $(DIST) panel/dist
