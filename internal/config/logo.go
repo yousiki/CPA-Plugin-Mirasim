@@ -1,7 +1,7 @@
-package main
+package config
 
-// pluginLogo is the icon the management panel shows on the Mirasim login card and in
-// the plugin list.
+// Logo is the icon the management panel shows on the Mirasim login card and in the
+// plugin list.
 //
 // It is the mirasim.ai mark (https://mirasim.ai/site/mirasim-mark-white.png) redrawn as
 // vector geometry — eight rounded bars, measured from the original 793x698 artwork —
@@ -17,7 +17,7 @@ package main
 //     URI. Base64 contains nothing that escaping touches.
 //   - Inlining it means the icon needs no request to mirasim.ai from the operator's
 //     browser, which matters behind a tunnel or on a restricted network.
-const pluginLogo = "data:image/svg+xml;base64," +
+const Logo = "data:image/svg+xml;base64," +
 	"PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4" +
 	"Ij48cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgcng9IjI4IiBmaWxsPSIjNkQ0QUU4Ii8+PGcg" +
 	"dHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjIgMjcuMDMpIHNjYWxlKDAuMTA1OTI3KSIgZmlsbD0iI2ZmZiI+" +

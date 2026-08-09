@@ -143,13 +143,16 @@ new file mode 100644
 index 0000000..71c62ab
 --- /dev/null
 +++ i/src/features/quota/providers/mirasim/MirasimQuotaBody.tsx
-@@ -0,0 +1,77 @@
+@@ -0,0 +1,67 @@
 +/**
-+ * Mirasim 额度渲染体：unified rate-limit 窗口水位条 + 累计消耗。
++ * Mirasim 额度渲染体：unified rate-limit 窗口水位条。
 + *
 + * 与 Kimi 同构（rows + 水位条），差别有二：
 + *  - 网关只报「已用比例」，所以水位条画的是剩余量 100 - used，与其余提供商口径一致；
 + *  - 网关只在有数据时才下发某个窗口的头，缺失的窗口直接不渲染，而不是画一条空轨道。
++ *
++ * 这里刻意不显示消耗额：网关的 x-litellm-key-spend 是共享虚拟 key 的累计消耗，
++ * 所有账号拿到的是同一个数字，放在单个账号的卡片里必然被读成该账号的花费。
 + */
 +
 +import { useMemo } from 'react';
@@ -171,7 +174,6 @@ index 0000000..71c62ab
 +    [quota, now]
 +  );
 +  const rows = quota.rows ?? [];
-+  const spend = quota.spend;
 +
 +  if (rows.length === 0) {
 +    return <div className={classes.quotaMessage}>{t('mirasim_quota.empty_data')}</div>;
@@ -206,18 +208,6 @@ index 0000000..71c62ab
 +          </div>
 +        );
 +      })}
-+
-+      {typeof spend === 'number' && spend >= 0 && (
-+        <div className={classes.codexPlan}>
-+          <div className={classes.codexPlanItem}>
-+            <span className={classes.codexPlanLabel}>{t('mirasim_quota.spend')}</span>
-+            {/* 网关不带单位，原样显示而不是伪装成货币 */}
-+            <span className={classes.codexPlanValue}>
-+              {spend.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-+            </span>
-+          </div>
-+        </div>
-+      )}
 +    </>
 +  );
 +}
@@ -226,7 +216,7 @@ new file mode 100644
 index 0000000..b393ad4
 --- /dev/null
 +++ i/src/features/quota/providers/mirasim/data.ts
-@@ -0,0 +1,116 @@
+@@ -0,0 +1,112 @@
 +/**
 + * Mirasim 额度数据层。React-free / SCSS-free。
 + *
@@ -252,7 +242,6 @@ index 0000000..b393ad4
 +    utilization_7d?: number;
 +    reset_5h?: number;
 +    reset_7d?: number;
-+    key_spend?: number;
 +    at?: number;
 +    error?: string;
 +  } | null;
@@ -260,7 +249,6 @@ index 0000000..b393ad4
 +
 +export interface MirasimQuotaData {
 +  rows: MirasimQuotaRow[];
-+  spend: number | null;
 +  readAt: number | null;
 +}
 +
@@ -317,7 +305,6 @@ index 0000000..b393ad4
 +
 +  return {
 +    rows,
-+    spend: hasValue(quota.key_spend) ? quota.key_spend : null,
 +    readAt: quota.at ?? null,
 +  };
 +};
@@ -333,7 +320,6 @@ index 0000000..b393ad4
 +  buildSuccessState: (data) => ({
 +    status: 'success',
 +    rows: data.rows,
-+    spend: data.spend,
 +    readAt: data.readAt,
 +  }),
 +  buildErrorState: (message, status) => ({
@@ -399,7 +385,7 @@ diff --git c/src/i18n/locales/en.json i/src/i18n/locales/en.json
 index 0e8fbdc..62f09a5 100644
 --- c/src/i18n/locales/en.json
 +++ i/src/i18n/locales/en.json
-@@ -489,6 +489,22 @@
+@@ -489,6 +489,21 @@
      "limit_index": "Limit #{{index}}",
      "reset_hint": "resets in {{hint}}"
    },
@@ -416,8 +402,7 @@ index 0e8fbdc..62f09a5 100644
 +    "refresh_button": "Refresh Quota",
 +    "fetch_all": "Fetch All",
 +    "window_5h": "5-hour window",
-+    "window_7d": "7-day window",
-+    "spend": "Spend"
++    "window_7d": "7-day window"
 +  },
    "xai_quota": {
      "title": "Grok Quota",
@@ -426,7 +411,7 @@ diff --git c/src/i18n/locales/ru.json i/src/i18n/locales/ru.json
 index 81e3867..7338072 100644
 --- c/src/i18n/locales/ru.json
 +++ i/src/i18n/locales/ru.json
-@@ -476,6 +476,22 @@
+@@ -476,6 +476,21 @@
      "limit_index": "Лимит #{{index}}",
      "reset_hint": "сброс через {{hint}}"
    },
@@ -443,8 +428,7 @@ index 81e3867..7338072 100644
 +    "refresh_button": "Обновить квоту",
 +    "fetch_all": "Загрузить все",
 +    "window_5h": "Окно 5 часов",
-+    "window_7d": "Окно 7 дней",
-+    "spend": "Расход"
++    "window_7d": "Окно 7 дней"
 +  },
    "xai_quota": {
      "title": "Квота Grok",
@@ -453,7 +437,7 @@ diff --git c/src/i18n/locales/zh-CN.json i/src/i18n/locales/zh-CN.json
 index 16533e3..697803e 100644
 --- c/src/i18n/locales/zh-CN.json
 +++ i/src/i18n/locales/zh-CN.json
-@@ -489,6 +489,22 @@
+@@ -489,6 +489,21 @@
      "limit_index": "限额 #{{index}}",
      "reset_hint": "{{hint}} 后重置"
    },
@@ -470,8 +454,7 @@ index 16533e3..697803e 100644
 +    "refresh_button": "刷新额度",
 +    "fetch_all": "全部获取",
 +    "window_5h": "5 小时窗口",
-+    "window_7d": "7 天窗口",
-+    "spend": "累计消耗"
++    "window_7d": "7 天窗口"
 +  },
    "xai_quota": {
      "title": "Grok 额度",
@@ -480,7 +463,7 @@ diff --git c/src/i18n/locales/zh-TW.json i/src/i18n/locales/zh-TW.json
 index e2661ac..49e0780 100644
 --- c/src/i18n/locales/zh-TW.json
 +++ i/src/i18n/locales/zh-TW.json
-@@ -489,6 +489,22 @@
+@@ -489,6 +489,21 @@
      "limit_index": "限額 #{{index}}",
      "reset_hint": "{{hint}} 後重置"
    },
@@ -497,8 +480,7 @@ index e2661ac..49e0780 100644
 +    "refresh_button": "重新整理額度",
 +    "fetch_all": "全部取得",
 +    "window_5h": "5 小時視窗",
-+    "window_7d": "7 天視窗",
-+    "spend": "累計消耗"
++    "window_7d": "7 天視窗"
 +  },
    "xai_quota": {
      "title": "Grok 配額",
@@ -560,16 +542,19 @@ diff --git c/src/types/quota.ts i/src/types/quota.ts
 index 8472879..d42db3c 100644
 --- c/src/types/quota.ts
 +++ i/src/types/quota.ts
-@@ -310,6 +310,35 @@ export interface KimiQuotaState {
+@@ -310,6 +310,36 @@ export interface KimiQuotaState {
    errorStatus?: number;
  }
- 
+
 +// Mirasim (plugin provider) quota types
 +//
 +// The Mirasim relay has no usage endpoint: it reports usage through Anthropic's unified
 +// rate-limit headers, which the mirasim CPA plugin reads and exposes on its own
 +// management route. A row is therefore one window's utilization percentage, with
 +// `limit` fixed at 100 so the meter maths stays identical to the other providers.
++//
++// There is no spend field on purpose: the gateway only reports the shared virtual key's
++// lifetime spend, which is the same number for every account.
 +export interface MirasimQuotaRow {
 +  id: string;
 +  label?: string;
@@ -585,8 +570,6 @@ index 8472879..d42db3c 100644
 +export interface MirasimQuotaState {
 +  status: 'idle' | 'loading' | 'success' | 'error';
 +  rows: MirasimQuotaRow[];
-+  /** x-litellm-key-spend, reported by the gateway without a unit; null when absent. */
-+  spend?: number | null;
 +  /** Epoch seconds of the reading, so the card can show how stale it is. */
 +  readAt?: number | null;
 +  error?: string;

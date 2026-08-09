@@ -68,10 +68,16 @@ plugins:
 
 ## Console and quota
 
-`/v0/resource/plugins/mirasim/status` lists accounts with their token expiry, 5h and 7d
-usage windows, and accrued spend. Suspend and resume take an account out of and back into
-rotation while keeping its refresh token. The page also shows up in the panel's plugin
-menu, which embeds it in an iframe.
+`/v0/resource/plugins/mirasim/status` lists accounts with their token expiry and their 5h
+and 7d usage windows. Suspend and resume take an account out of and back into rotation
+while keeping its refresh token, one account at a time or all of them at once. The page
+also shows up in the panel's plugin menu, which embeds it in an iframe.
+
+The bulk buttons arm on the first click and act on the second, rather than opening a
+`confirm()` dialog: inside the panel's iframe a `sandbox` attribute without `allow-modals`
+makes `confirm()` return false with no dialog at all, which would leave the button looking
+dead. Accounts already in the target state are skipped, so pressing *Suspend all* twice
+does not make the host reload every credential for nothing.
 
 The shell is served without a token — it holds no account data, and the panel's iframe
 has no way to supply one, so gating it would only ever render a raw 403 body. It asks for
@@ -100,6 +106,17 @@ windows and 0..100 for others) and a `-1` means the header was absent. A 401 or 
 reported as a rejected credential rather than as an empty meter, so an unentitled
 account cannot look like an idle one.
 
+**There is no per-account spend figure, on purpose.** The probe response also carries
+`x-litellm-key-spend`, and it was once shown per account as "Spend" — but the relay
+validates the Mirofish JWT itself, does the per-account accounting the unified headers
+report, and then forwards to LiteLLM under a single shared virtual key. That header is
+therefore the gateway's own lifetime spend and comes back byte-identical for every
+account (observed: the same `40679.367…` for all of them, while 7d utilization differed
+per account). Shown in an account's row it reads as that account's cost, which it is not,
+so it is no longer read at all. A genuinely per-account figure would have to be
+accumulated in the plugin from `x-litellm-response-cost` on the executor's own responses,
+and would then cover only traffic that went through this proxy.
+
 ### In the management panel
 
 The panel's Quota page can show Mirasim too, but only with the patch in `panel/`: its
@@ -117,12 +134,41 @@ window is omitted rather than drawn as an empty meter.
 Only ids verified end to end through CPA with a claude-code-shaped request are
 advertised. The relay publishes 40; the rest fail for this tenant (the `anthropic/*`
 family answers 503, the `gpt-5.6*` family 403, the undated `claude-haiku-4-5` fails
-claude-code's real payload with 400). See `defaultModels` in `config.go`.
+claude-code's real payload with 400). See `DefaultModels` in
+`internal/config/config.go`.
 
 No alias is set on any entry, on purpose: CPA advertises the alias to clients *instead
 of* the name, which would hide the gateway ids.
 
-## Two things worth knowing before you change the code
+## Layout
+
+```
+cmd/mirasim/      the C ABI boundary and nothing else: the cgo preamble, the four
+                  exported symbols, and callHost (which needs that preamble's statics)
+internal/
+  config/         plugin id, version, logo, and the plugins.configs.mirasim block
+  routes/         the HTTP paths, in their own leaf package so auth and management can
+                  both reach them without importing each other
+  rpc/            the ok/error envelope every method answers with
+  hostapi/        typed host callbacks; the bridge is injected by cmd/mirasim
+  credential/     the stored auth file: map-based reads, typed writes
+  textutil/       FirstNonEmpty and Truncate
+  mirofish/       the auth backend client and JWT decoding
+  quota/          the rate-limit probe and its cache
+  auth/           auth.parse / login.start / login.poll / refresh, and login sessions
+  models/         model.static / model.for_auth
+  executor/       the relay forwarder and its SSE framing
+  management/     route registration, the console feed, and suspend/resume
+  ui/             the two self-contained HTML pages
+  plugin/         the method switch, config lifecycle, and registration metadata
+```
+
+Nothing under `internal/` imports cgo, so `go test ./...` covers everything except the ABI
+shim. That is the point of the split: the host callback bridge is a function variable
+(`hostapi.SetCall`) that `cmd/mirasim` installs from an `init`, so a test can exercise a
+handler without a host.
+
+## Three things worth knowing before you change the code
 
 **Refresh runs through the executor.** The host looks the refresh handler up on the
 executor bound to `auth.Provider` (`internal/pluginhost/adapters_executors.go`), so a
@@ -135,6 +181,11 @@ back, so a `disabled` written from here is reverted within milliseconds. The
 provider-owned `suspended` field in the auth file survives the round trip, and
 `auth.parse` turns it back into a genuinely disabled record.
 
+**A credential is edited as a map, never as a struct.** The host merges its own metadata
+into the same JSON object, and suspend/resume is a read-modify-write, so decoding into a
+typed struct would silently drop every key this plugin does not know about.
+`credential.Payload` keeps the map and puts typed accessors on top.
+
 ## Build
 
 The library is loaded into the CPA process, so the toolchain and libc must match the
@@ -143,7 +194,8 @@ server image (debian bookworm, glibc) exactly.
 ```bash
 make build      # dist/mirasim.so for linux/amd64, via docker
 make release    # + dist/mirasim_<version>_linux_amd64.zip and checksums.txt
-make check      # vet, and confirm config.go and registry.json agree on the version
+make test       # go test ./... - no host and no cgo needed
+make check      # vet + test, and report the version the artifacts will carry
 ```
 
 ## Install

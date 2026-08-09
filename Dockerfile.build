@@ -11,13 +11,16 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY *.go ./
+# Only the source tree, so dist/ and panel/dist/ (~8 MB of build output) stay out of the
+# build context and out of the layer cache.
+COPY cmd/ ./cmd/
+COPY internal/ ./internal/
 
 RUN CGO_ENABLED=1 GOOS=linux go build \
     -buildmode=c-shared \
     -trimpath \
     -ldflags="-s -w" \
-    -o /out/mirasim.so . \
+    -o /out/mirasim.so ./cmd/mirasim \
  && rm -f /out/mirasim.h
 
 # `docker build --target artifact --output type=local,dest=dist` drops mirasim.so into dist/.

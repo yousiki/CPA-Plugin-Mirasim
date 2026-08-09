@@ -1,172 +1,16 @@
-package main
+package ui
 
-// Self-contained HTML for the two browser pages. No external assets, so the pages work
-// behind a tunnel and under a restrictive CSP.
+import (
+	"github.com/yousiki/CPA-Plugin-Mirasim/internal/config"
+	"github.com/yousiki/CPA-Plugin-Mirasim/internal/routes"
+)
 
-import "encoding/json"
-
-const pageStyle = `
-:root { color-scheme: light dark; }
-* { box-sizing: border-box; }
-body { margin: 0; padding: 2.5rem 1.25rem; font: 15px/1.55 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
-       background: Canvas; color: CanvasText; }
-main { max-width: 46rem; margin: 0 auto; }
-h1 { font-size: 1.35rem; margin: 0 0 .35rem; }
-p.sub { margin: 0 0 1.75rem; opacity: .7; }
-fieldset { border: 1px solid color-mix(in srgb, CanvasText 18%, transparent); border-radius: .6rem;
-           padding: 1.1rem 1.15rem; margin: 0 0 1rem; }
-legend { padding: 0 .4rem; font-weight: 600; font-size: .9rem; }
-label { display: block; font-size: .82rem; opacity: .75; margin-bottom: .35rem; }
-input { width: 100%; padding: .6rem .7rem; font: inherit; border-radius: .45rem;
-        border: 1px solid color-mix(in srgb, CanvasText 25%, transparent); background: Canvas; color: CanvasText; }
-button { margin-top: .8rem; padding: .55rem 1.1rem; font: inherit; font-weight: 600; cursor: pointer;
-         border-radius: .45rem; border: 1px solid color-mix(in srgb, CanvasText 25%, transparent);
-         background: color-mix(in srgb, CanvasText 8%, Canvas); color: CanvasText; }
-button:disabled { opacity: .45; cursor: not-allowed; }
-button.link { margin: 0; padding: .25rem .55rem; font-size: .8rem; font-weight: 500; }
-.msg { margin-top: .9rem; padding: .6rem .75rem; border-radius: .45rem; font-size: .88rem; white-space: pre-wrap; }
-.msg.ok { background: color-mix(in srgb, #16a34a 16%, transparent); }
-.msg.err { background: color-mix(in srgb, #dc2626 16%, transparent); }
-.hidden { display: none; }
-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
-th, td { text-align: left; padding: .5rem .4rem; border-bottom: 1px solid color-mix(in srgb, CanvasText 12%, transparent); }
-th { font-weight: 600; opacity: .7; font-size: .8rem; }
-td.actions { text-align: right; white-space: nowrap; }
-.pill { display: inline-block; padding: .1rem .5rem; border-radius: 999px; font-size: .76rem;
-        background: color-mix(in srgb, CanvasText 10%, transparent); }
-.pill.off { background: color-mix(in srgb, #dc2626 18%, transparent); }
-.meter { width: 100%; min-width: 4.5rem; height: .38rem; border-radius: 999px; overflow: hidden;
-         background: color-mix(in srgb, CanvasText 14%, transparent); margin-top: .25rem; }
-.meter > span { display: block; height: 100%; border-radius: 999px; background: #16a34a; }
-.meter > span.mid { background: #f59e0b; }
-.meter > span.high { background: #dc2626; }
-.dim { opacity: .55; }
-footer { margin-top: 1.5rem; font-size: .8rem; opacity: .6; }
-`
-
-// jsString renders a Go string as a JSON literal safe to inline in a <script> block.
-// encoding/json escapes <, > and & to \u00XX, so an embedded "</script>" cannot close
-// the element early.
-func jsString(value string) string {
-	encoded, err := json.Marshal(value)
-	if err != nil {
-		return `""`
-	}
-	return string(encoded)
-}
-
-func boolLiteral(value bool) string {
-	if value {
-		return "true"
-	}
-	return "false"
-}
-
-func loginPageHTML(state string) string {
-	return `<!doctype html>
-<html lang="en"><head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sign in to Mirasim</title>
-<style>` + pageStyle + `</style>
-</head><body><main>
-<h1>Sign in to Mirasim</h1>
-<p class="sub">Enter the account email, then the 6-digit code it receives. Leave this tab open until the panel reports success.</p>
-
-<fieldset>
-  <legend>1 &middot; Email</legend>
-  <label for="email">Account email</label>
-  <input id="email" type="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com">
-  <button id="send" type="button">Send code</button>
-</fieldset>
-
-<fieldset id="step2" class="hidden">
-  <legend>2 &middot; Verification code</legend>
-  <label for="code">6-digit code</label>
-  <input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="12" placeholder="123456">
-  <button id="verify" type="button">Verify and finish</button>
-</fieldset>
-
-<div id="msg" class="msg hidden"></div>
-<footer>This page talks only to this proxy. The verification code is single-use and the session expires in 10 minutes.</footer>
-</main>
-<!-- data-cfasync="false": see the note on the CSP header in console.go. -->
-<script data-cfasync="false">
-(function () {
-  var state = ` + jsString(state) + `;
-  var base = "/v0/resource/plugins/` + pluginID + `";
-  var email = document.getElementById("email");
-  var code = document.getElementById("code");
-  var send = document.getElementById("send");
-  var verify = document.getElementById("verify");
-  var step2 = document.getElementById("step2");
-  var msg = document.getElementById("msg");
-
-  function show(text, ok) {
-    msg.textContent = text;
-    msg.className = "msg " + (ok ? "ok" : "err");
-  }
-
-  function call(path, params, button, label, done) {
-    button.disabled = true;
-    var query = new URLSearchParams(params);
-    query.set("state", state);
-    fetch(base + path + "?" + query.toString(), { headers: { accept: "application/json" } })
-      .then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }); })
-      .then(function (r) {
-        button.disabled = false;
-        if (!r.body || r.body.ok !== true) {
-          show((r.body && r.body.error) || ("request failed with HTTP " + r.status), false);
-          return;
-        }
-        done(r.body);
-      })
-      .catch(function (e) { button.disabled = false; show(String(e), false); });
-  }
-
-  send.addEventListener("click", function () {
-    var value = (email.value || "").trim();
-    if (!value) { show("Enter an email address first.", false); return; }
-    call("/login/code", { email: value }, send, "", function (body) {
-      step2.classList.remove("hidden");
-      code.focus();
-      show(body.dev_code
-        ? ("Code sent to " + body.email + ". Staging echoed it back: " + body.dev_code)
-        : ("Code sent to " + body.email + ". Check the inbox."), true);
-    });
-  });
-
-  verify.addEventListener("click", function () {
-    var value = (code.value || "").trim();
-    if (!value) { show("Enter the code you received.", false); return; }
-    call("/login/verify", { code: value }, verify, "", function (body) {
-      verify.disabled = true;
-      send.disabled = true;
-      show("Signed in as " + body.email + ". Closing this tab…", true);
-      // The panel opened this tab with window.open, so it is allowed to close itself.
-      // Browsers that refuse (or a tab opened by hand from the copied link) fall through
-      // to the message below; the panel finishes saving the credential either way.
-      window.setTimeout(function () {
-        window.close();
-        window.setTimeout(function () {
-          show("Signed in as " + body.email + ". The credential is saved — you can close this tab.", true);
-        }, 400);
-      }, 1200);
-    });
-  });
-
-  if (!state) { show("This link is missing its login state. Start the login again from the panel.", false); }
-})();
-</script>
-</body></html>`
-}
-
-// statusPageHTML renders the console shell.
+// StatusPage renders the console shell.
 //
 // `configured` reports whether a console token exists at all, so the page can tell
-// "locked, enter the token" apart from "the operator never set one" instead of leaving
-// the reader staring at a permanent 403.
-func statusPageHTML(configured bool, token string) string {
+// "locked, enter the token" apart from "the operator never set one" instead of leaving the
+// reader staring at a permanent 403.
+func StatusPage(configured bool, token string) string {
 	return `<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">
@@ -179,7 +23,7 @@ func statusPageHTML(configured bool, token string) string {
 
 <fieldset id="unlock" class="hidden">
   <legend>Console token</legend>
-  <label for="tokenInput">This console is protected by <code>plugins.configs.mirasim.console_token</code>.</label>
+  <label for="tokenInput">This console is protected by <code>plugins.configs.` + config.PluginID + `.console_token</code>.</label>
   <input id="tokenInput" type="password" autocomplete="off" spellcheck="false" placeholder="console token">
   <button id="unlockBtn" type="button">Unlock</button>
 </fieldset>
@@ -187,15 +31,17 @@ func statusPageHTML(configured bool, token string) string {
 <div id="controls" class="hidden">
   <button id="reload" class="link" type="button">Reload</button>
   <button id="quota" class="link" type="button">Read quota</button>
+  <button id="suspendAll" class="link" type="button">Suspend all</button>
+  <button id="resumeAll" class="link" type="button">Resume all</button>
   <button id="forget" class="link" type="button">Forget token</button>
 </div>
 <table id="table" class="hidden"><thead><tr>
-  <th>Account</th><th>State</th><th>Token</th><th>5h window</th><th>7d window</th><th>Spend</th><th></th>
+  <th>Account</th><th>State</th><th>Token</th><th>5h window</th><th>7d window</th><th></th>
 </tr></thead><tbody id="rows"></tbody></table>
 <div id="msg" class="msg hidden"></div>
 <footer id="foot"></footer>
 </main>
-<!-- data-cfasync="false": see the note on the CSP header in console.go. -->
+<!-- data-cfasync="false": see the note on the CSP header in management/response.go. -->
 <script data-cfasync="false">
 (function () {
   var configured = ` + boolLiteral(configured) + `;
@@ -207,7 +53,7 @@ func statusPageHTML(configured bool, token string) string {
   if (!token) {
     try { token = window.localStorage.getItem(STORAGE_KEY) || ""; } catch (e) { token = ""; }
   }
-  var base = "/v0/resource/plugins/` + pluginID + `";
+  var base = ` + jsString(routes.ResourcePrefix) + `;
   var rows = document.getElementById("rows");
   var msg = document.getElementById("msg");
   var sub = document.getElementById("sub");
@@ -267,10 +113,15 @@ func statusPageHTML(configured bool, token string) string {
       name.textContent = account.email || account.label || account.name;
       tr.appendChild(name);
 
+      var quota = account.quota || null;
+
       var state = document.createElement("td");
       var pill = document.createElement("span");
       pill.className = "pill" + (account.disabled || account.unavailable ? " off" : "");
       pill.textContent = account.disabled ? "suspended" : (account.status || "active");
+      // The probe's own complaint (a rejected credential, missing headers) has no column
+      // of its own; hang it off the state, which is what an operator looks at first.
+      if (quota && quota.error) { pill.title = quota.error; }
       state.appendChild(pill);
       tr.appendChild(state);
 
@@ -278,25 +129,8 @@ func statusPageHTML(configured bool, token string) string {
       expiry.textContent = duration(account.seconds_left);
       tr.appendChild(expiry);
 
-      var quota = account.quota || null;
       tr.appendChild(quotaCell(quota && quota.utilization_5h, quota && quota.reset_5h, data.now));
       tr.appendChild(quotaCell(quota && quota.utilization_7d, quota && quota.reset_7d, data.now));
-
-      var spend = document.createElement("td");
-      if (quota && quota.key_spend >= 0) {
-        // x-litellm-key-spend, reported without a unit — shown as the raw figure rather
-        // than dressed up as a currency it may not be.
-        spend.textContent = Number(quota.key_spend).toLocaleString(undefined, {
-          maximumFractionDigits: 2
-        });
-      } else {
-        spend.textContent = "—";
-        spend.className = "dim";
-      }
-      if (quota && quota.error) {
-        spend.title = quota.error;
-      }
-      tr.appendChild(spend);
 
       var actions = document.createElement("td");
       actions.className = "actions";
@@ -311,7 +145,7 @@ func statusPageHTML(configured bool, token string) string {
           op: account.disabled ? "resume" : "suspend",
           auth_index: account.auth_index
         });
-        fetch(base + "/status/action?" + query.toString())
+        fetch(base + ` + jsString(routes.StatusAction) + ` + "?" + query.toString())
           .then(function (r) { return r.json(); })
           .then(function (body) {
             if (body.ok !== true) { show(body.error || "action failed", false); button.disabled = false; return; }
@@ -368,7 +202,7 @@ func statusPageHTML(configured bool, token string) string {
   function load(withQuota) {
     if (!token) { setLocked(true); return; }
     var query = new URLSearchParams({ token: token, quota: withQuota ? "1" : "0" });
-    fetch(base + "/status/data?" + query.toString())
+    fetch(base + ` + jsString(routes.StatusData) + ` + "?" + query.toString())
       .then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }); })
       .then(function (r) {
         if (r.status === 403) {
@@ -387,6 +221,65 @@ func statusPageHTML(configured bool, token string) string {
       })
       .catch(function (e) { show(String(e), false); });
   }
+
+  // -- bulk suspend / resume --------------------------------------------------
+  //
+  // Two-step arming rather than window.confirm(): this page is embedded in the
+  // management panel's iframe, and a sandbox attribute without allow-modals makes
+  // confirm() return false with no dialog — the button would look dead. Arming needs no
+  // modal and no extra CSP allowance.
+  var ARM_MS = 5000;
+  var suspendAll = document.getElementById("suspendAll");
+  var resumeAll = document.getElementById("resumeAll");
+
+  function bulk(button, op, label) {
+    var armed = false;
+    var timer = 0;
+    function disarm() {
+      armed = false;
+      window.clearTimeout(timer);
+      button.textContent = label;
+      button.classList.remove("armed");
+    }
+    button.addEventListener("click", function () {
+      if (!armed) {
+        armed = true;
+        button.textContent = "Click again to confirm";
+        button.classList.add("armed");
+        timer = window.setTimeout(disarm, ARM_MS);
+        return;
+      }
+      disarm();
+      suspendAll.disabled = true;
+      resumeAll.disabled = true;
+      var query = new URLSearchParams({ token: token, op: op });
+      fetch(base + ` + jsString(routes.StatusAction) + ` + "?" + query.toString())
+        .then(function (r) { return r.json(); })
+        .then(function (body) {
+          suspendAll.disabled = false;
+          resumeAll.disabled = false;
+          if (body.ok !== true) { show(body.error || "action failed", false); return; }
+          var failed = body.failed || [];
+          var text = (op === "suspend_all" ? "Suspended " : "Resumed ") + (body.changed || 0) + " account(s)";
+          if (body.skipped) { text += " · " + body.skipped + " already " + (op === "suspend_all" ? "suspended" : "active"); }
+          if (failed.length) {
+            text += " · " + failed.length + " failed: " + failed.map(function (f) {
+              return (f.email || f.auth_index) + " (" + f.error + ")";
+            }).join("; ");
+          }
+          show(text, failed.length === 0);
+          load(false);
+        })
+        .catch(function (e) {
+          suspendAll.disabled = false;
+          resumeAll.disabled = false;
+          show(String(e), false);
+        });
+    });
+  }
+
+  bulk(suspendAll, "suspend_all", "Suspend all");
+  bulk(resumeAll, "resume_all", "Resume all");
 
   document.getElementById("unlockBtn").addEventListener("click", function () {
     var value = (tokenInput.value || "").trim();
@@ -412,7 +305,7 @@ func statusPageHTML(configured bool, token string) string {
   if (!configured) {
     setLocked(true);
     unlock.classList.add("hidden");
-    show("This console is disabled. Set plugins.configs.` + pluginID + `.console_token in the CPA config to enable it.", false);
+    show("This console is disabled. Set plugins.configs.` + config.PluginID + `.console_token in the CPA config to enable it.", false);
   } else {
     // Cached readings. The automatic probe rides the credential refresh cycle, so a page
     // load is free once an account has been read at least once; an account with no

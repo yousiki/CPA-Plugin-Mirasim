@@ -1,4 +1,8 @@
-package main
+// Package config holds the plugin's identity and its `plugins.configs.mirasim` block.
+//
+// It is a leaf: it imports nothing else from this module, so every other package can
+// depend on it without introducing a cycle.
+package config
 
 import (
 	"strconv"
@@ -9,20 +13,22 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// pluginID is the dynamic library basename, the provider key, and the
+// PluginID is the dynamic library basename, the provider key, and the
 // `plugins.configs.<id>` key. All three must agree: CPA selects the executor by
 // auth.Provider and looks the auth provider up by the same string.
-const pluginID = "mirasim"
+const PluginID = "mirasim"
 
-const pluginVersion = "0.1.0"
+// Version is the single source of truth for the plugin version; the Makefile scrapes it
+// out of this file, so keep the `const Version = "..."` form on one line.
+const Version = "0.1.0"
 
-// modelSpec is one advertised model id and its context window.
-type modelSpec struct {
+// ModelSpec is one advertised model id and its context window.
+type ModelSpec struct {
 	ID            string
 	ContextLength int64
 }
 
-// defaultModels is the catalogue every Mirasim credential advertises.
+// DefaultModels is the catalogue every Mirasim credential advertises.
 //
 // Each id was verified end to end through CLIProxyAPI with a claude-code-shaped request
 // (streaming, cached system blocks, tool schemas) and answered with a `msg_bdrk_*` id,
@@ -38,7 +44,7 @@ type modelSpec struct {
 //     payload with 400, so the dated id is used instead
 //
 // kimi-k3 and gpt-4o-mini-openrouter declare no context length on the relay, so none is set.
-var defaultModels = []modelSpec{
+var DefaultModels = []ModelSpec{
 	{ID: "claude-opus-5", ContextLength: 1_000_000},
 	{ID: "claude-opus-4-8", ContextLength: 1_000_000},
 	{ID: "claude-opus-4-7", ContextLength: 1_000_000},
@@ -50,8 +56,8 @@ var defaultModels = []modelSpec{
 	{ID: "gpt-4o-mini-openrouter"},
 }
 
-// pluginConfig mirrors `plugins.configs.mirasim` in the CPA config.
-type pluginConfig struct {
+// Config mirrors `plugins.configs.mirasim` in the CPA config.
+type Config struct {
 	LoginURL               string `yaml:"login_url"`
 	RelayURL               string `yaml:"relay_url"`
 	PublicBaseURL          string `yaml:"public_base_url"`
@@ -62,14 +68,16 @@ type pluginConfig struct {
 	ContextBeta            string `yaml:"context_beta"`
 	HTTPTimeoutSeconds     int    `yaml:"http_timeout_seconds"`
 
-	// models is the parsed form of ModelIDs, or defaultModels when it is empty.
-	models []modelSpec
+	// Models is the parsed form of ModelIDs, or DefaultModels when it is empty. It is
+	// never read from YAML - `yaml:"-"` keeps a stray `models:` key in the config from
+	// overwriting the parsed catalogue with something the parser never validated.
+	Models []ModelSpec `yaml:"-"`
 }
 
-var currentConfig atomic.Value
+var current atomic.Value
 
-func defaultPluginConfig() pluginConfig {
-	return pluginConfig{
+func Default() Config {
+	return Config{
 		// Compiled into the Mirasim app; note it is the staging host.
 		LoginURL: "https://admin.test.mirofish.ai",
 		RelayURL: "https://mirasim-relay.mirofish.ai",
@@ -80,15 +88,15 @@ func defaultPluginConfig() pluginConfig {
 		// 1M context is opted into with a header, never with a model-name suffix.
 		ContextBeta:        "context-1m-2025-08-07",
 		HTTPTimeoutSeconds: 120,
-		models:             defaultModels,
+		Models:             DefaultModels,
 	}
 }
 
-func decodeConfig(raw []byte) (pluginConfig, error) {
-	cfg := defaultPluginConfig()
+func Decode(raw []byte) (Config, error) {
+	cfg := Default()
 	if len(raw) > 0 {
 		if err := yaml.Unmarshal(raw, &cfg); err != nil {
-			return pluginConfig{}, err
+			return Config{}, err
 		}
 	}
 	cfg.LoginURL = trimTrailingSlash(cfg.LoginURL)
@@ -97,42 +105,57 @@ func decodeConfig(raw []byte) (pluginConfig, error) {
 	cfg.ConsoleToken = strings.TrimSpace(cfg.ConsoleToken)
 	cfg.ContextBeta = strings.TrimSpace(cfg.ContextBeta)
 	if cfg.RefreshIntervalSeconds <= 0 {
-		cfg.RefreshIntervalSeconds = defaultPluginConfig().RefreshIntervalSeconds
+		cfg.RefreshIntervalSeconds = Default().RefreshIntervalSeconds
 	}
 	if cfg.HTTPTimeoutSeconds <= 0 {
-		cfg.HTTPTimeoutSeconds = defaultPluginConfig().HTTPTimeoutSeconds
+		cfg.HTTPTimeoutSeconds = Default().HTTPTimeoutSeconds
 	}
-	cfg.models = parseModelIDs(cfg.ModelIDs)
+	cfg.Models = ParseModelIDs(cfg.ModelIDs)
 	return cfg, nil
 }
 
-func loadedConfig() pluginConfig {
-	if cfg, ok := currentConfig.Load().(pluginConfig); ok {
-		return cfg
-	}
-	return defaultPluginConfig()
+// Store publishes a decoded config for Loaded to hand out.
+func Store(cfg Config) {
+	current.Store(cfg)
 }
 
-func (c pluginConfig) httpTimeout() time.Duration {
+// Loaded returns the active config, or the defaults before plugin.register has run.
+func Loaded() Config {
+	if cfg, ok := current.Load().(Config); ok {
+		return cfg
+	}
+	return Default()
+}
+
+func (c Config) HTTPTimeout() time.Duration {
 	return time.Duration(c.HTTPTimeoutSeconds) * time.Second
 }
 
-// parseModelIDs reads `id[:contextLength],...`, falling back to the built-in catalogue.
-func parseModelIDs(raw string) []modelSpec {
+// ModelIDList is the advertised catalogue as bare ids, for the console footer.
+func (c Config) ModelIDList() []string {
+	out := make([]string, 0, len(c.Models))
+	for _, spec := range c.Models {
+		out = append(out, spec.ID)
+	}
+	return out
+}
+
+// ParseModelIDs reads `id[:contextLength],...`, falling back to the built-in catalogue.
+func ParseModelIDs(raw string) []ModelSpec {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
-		return defaultModels
+		return DefaultModels
 	}
-	out := make([]modelSpec, 0, 8)
+	out := make([]ModelSpec, 0, 8)
 	for _, token := range strings.Split(raw, ",") {
 		token = strings.TrimSpace(token)
 		if token == "" {
 			continue
 		}
-		spec := modelSpec{ID: token}
+		spec := ModelSpec{ID: token}
 		if separator := strings.LastIndex(token, ":"); separator > 0 {
 			if context, err := strconv.ParseInt(strings.TrimSpace(token[separator+1:]), 10, 64); err == nil && context > 0 {
-				spec = modelSpec{ID: strings.TrimSpace(token[:separator]), ContextLength: context}
+				spec = ModelSpec{ID: strings.TrimSpace(token[:separator]), ContextLength: context}
 			}
 		}
 		if spec.ID != "" {
@@ -140,7 +163,7 @@ func parseModelIDs(raw string) []modelSpec {
 		}
 	}
 	if len(out) == 0 {
-		return defaultModels
+		return DefaultModels
 	}
 	return out
 }

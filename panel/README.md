@@ -22,7 +22,7 @@ usage endpoint, which the relay does not serve.
 | File | Change |
 | --- | --- |
 | `providers/mirasim/data.ts` | Reads `GET /v0/management/mirasim/quota`, turns the reading into rows |
-| `providers/mirasim/MirasimQuotaBody.tsx` | Window meters plus the accrued spend |
+| `providers/mirasim/MirasimQuotaBody.tsx` | The window meters |
 | `types/quota.ts`, `stores/useQuotaStore.ts`, `providers/types.ts` | State type and store slice |
 | `providers/index.ts`, `logic.ts`, `constants.ts`, `resetSchedule.ts` | Registration, tab order, reset scheduling |
 | `utils/quota/validators.ts` | `isMirasimFile` |
@@ -35,6 +35,10 @@ Unlike the other five providers the data does not come from an upstream usage en
 the relay only reports usage in Anthropic's unified rate-limit response headers, so
 reading it costs a real request. The plugin does that server-side on its own schedule and
 caches it; the panel just reads the cache.
+
+The card shows no spend figure. The gateway's `x-litellm-key-spend` is the shared virtual
+key's lifetime spend and is the same number for every account, so a per-card value would
+be read as that account's cost; see "Console and quota" in the top-level README.
 
 ## Build
 

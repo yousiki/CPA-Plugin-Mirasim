@@ -1,6 +1,4 @@
-package main
-
-// Quota tracking for Mirasim accounts.
+// Package quota tracks usage for Mirasim accounts.
 //
 // The relay reports usage through Anthropic's unified rate-limit headers. There is no
 // usage endpoint to query, but an invalid request still carries the headers, so the
@@ -12,6 +10,7 @@ package main
 // Probes ride the host's own refresh cadence (one per account per refresh, ~25 min by
 // default), the same shape the sidecar's 30-minute scheduler had. The console reads the
 // cache and can force a fresh probe on demand.
+package quota
 
 import (
 	"net/http"
@@ -19,12 +18,15 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/yousiki/CPA-Plugin-Mirasim/internal/config"
+	"github.com/yousiki/CPA-Plugin-Mirasim/internal/hostapi"
 )
 
-// quotaMinInterval keeps forced probes from being spammed by a console reload.
-const quotaMinInterval = 60 * time.Second
+// minInterval keeps forced probes from being spammed by a console reload.
+const minInterval = 60 * time.Second
 
-// quotaSnapshot is one reading of an account's rate-limit state.
+// Snapshot is one reading of an account's rate-limit state.
 //
 // Utilization is normalised to percent; -1 means the header was absent.
 //
@@ -32,83 +34,91 @@ const quotaMinInterval = 60 * time.Second
 //
 //	anthropic-ratelimit-unified-7d-utilization: 0.22689583333333332
 //	anthropic-ratelimit-unified-7d-reset: 1786673322
-//	x-litellm-key-spend: 40679.36706610024
 //
 // so utilization is a 0..1 fraction. The 5h headers the sidecar also looked for were
 // *not* present in any observed response — the fields are kept because reading them
 // costs nothing if the gateway starts sending them, but nothing should assume they
 // arrive.
-type quotaSnapshot struct {
+//
+// `x-litellm-key-spend` is deliberately NOT read. The relay validates the Mirofish JWT
+// itself and does the per-account accounting that the unified headers above report, then
+// forwards to LiteLLM under one shared virtual key — so that header is the *gateway's*
+// lifetime spend and comes back byte-identical for every account (observed:
+// 40679.36706610024 for all of them, while 7d utilization differed). It was previously
+// rendered per account as "Spend", which reads as that account's cost and is not.
+// A genuinely per-account figure would have to be accumulated here from
+// `x-litellm-response-cost` on the executor's own responses, and would then cover only
+// traffic that went through this proxy.
+type Snapshot struct {
 	Status        int     `json:"status"`
 	Utilization5h float64 `json:"utilization_5h"`
 	Utilization7d float64 `json:"utilization_7d"`
 	Reset5h       int64   `json:"reset_5h,omitempty"`
 	Reset7d       int64   `json:"reset_7d,omitempty"`
-	KeySpend      float64 `json:"key_spend"`
 	At            int64   `json:"at"`
 	Error         string  `json:"error,omitempty"`
 }
 
 var (
-	quotaMu    sync.RWMutex
-	quotaCache = make(map[string]quotaSnapshot)
+	mu    sync.RWMutex
+	cache = make(map[string]Snapshot)
 )
 
-func quotaKey(email string) string {
+func key(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
 }
 
-func lookupQuota(email string) (quotaSnapshot, bool) {
-	quotaMu.RLock()
-	defer quotaMu.RUnlock()
-	snapshot, ok := quotaCache[quotaKey(email)]
+func Lookup(email string) (Snapshot, bool) {
+	mu.RLock()
+	defer mu.RUnlock()
+	snapshot, ok := cache[key(email)]
 	return snapshot, ok
 }
 
-func storeQuota(email string, snapshot quotaSnapshot) {
-	key := quotaKey(email)
-	if key == "" {
+func Store(email string, snapshot Snapshot) {
+	cacheKey := key(email)
+	if cacheKey == "" {
 		return
 	}
-	quotaMu.Lock()
-	quotaCache[key] = snapshot
-	quotaMu.Unlock()
+	mu.Lock()
+	cache[cacheKey] = snapshot
+	mu.Unlock()
 }
 
-func forgetQuota(email string) {
-	quotaMu.Lock()
-	delete(quotaCache, quotaKey(email))
-	quotaMu.Unlock()
+func Forget(email string) {
+	mu.Lock()
+	delete(cache, key(email))
+	mu.Unlock()
 }
 
-// probeQuotaCached returns the cached reading unless a fresh one is asked for and the
-// minimum interval has elapsed.
-func probeQuotaCached(cfg pluginConfig, callbackID, email, accessToken string, force bool) (quotaSnapshot, bool) {
-	cached, ok := lookupQuota(email)
+// ProbeCached returns the cached reading unless a fresh one is asked for and the minimum
+// interval has elapsed.
+func ProbeCached(cfg config.Config, callbackID, email, accessToken string, force bool) (Snapshot, bool) {
+	cached, ok := Lookup(email)
 	if !cfg.QuotaProbe {
 		return cached, ok
 	}
 	if ok && !force {
 		return cached, true
 	}
-	if ok && force && time.Since(time.Unix(cached.At, 0)) < quotaMinInterval {
+	if ok && force && time.Since(time.Unix(cached.At, 0)) < minInterval {
 		return cached, true
 	}
 	if strings.TrimSpace(accessToken) == "" {
 		return cached, ok
 	}
-	snapshot := probeQuota(cfg, callbackID, accessToken)
-	storeQuota(email, snapshot)
+	snapshot := Probe(cfg, callbackID, accessToken)
+	Store(email, snapshot)
 	return snapshot, true
 }
 
-// probeQuotaAsync refreshes one account's reading in the background.
+// ProbeAsync refreshes one account's reading in the background.
 //
 // Called from auth.refresh, which the host drives on its own schedule, so this is the
 // automatic "once per account per cycle" probe. It is best-effort: a failed probe must
 // never turn into a failed refresh.
-func probeQuotaAsync(cfg pluginConfig, email, accessToken string) {
-	if !cfg.QuotaProbe || strings.TrimSpace(accessToken) == "" || quotaKey(email) == "" {
+func ProbeAsync(cfg config.Config, email, accessToken string) {
+	if !cfg.QuotaProbe || strings.TrimSpace(accessToken) == "" || key(email) == "" {
 		return
 	}
 	go func() {
@@ -116,20 +126,19 @@ func probeQuotaAsync(cfg pluginConfig, email, accessToken string) {
 			// A panic in a detached goroutine would take the whole proxy down; the host's
 			// panic fuse only covers calls it made itself.
 			if recovered := recover(); recovered != nil {
-				hostLog("warn", pluginID+": quota probe panicked")
+				hostapi.Log("warn", config.PluginID+": quota probe panicked")
 			}
 		}()
-		storeQuota(email, probeQuota(cfg, "", accessToken))
+		Store(email, Probe(cfg, "", accessToken))
 	}()
 }
 
-// probeQuota reads the relay's rate-limit headers for one access token.
-func probeQuota(cfg pluginConfig, callbackID, accessToken string) quotaSnapshot {
-	snapshot := quotaSnapshot{
+// Probe reads the relay's rate-limit headers for one access token.
+func Probe(cfg config.Config, callbackID, accessToken string) Snapshot {
+	snapshot := Snapshot{
 		At:            time.Now().Unix(),
 		Utilization5h: -1,
 		Utilization7d: -1,
-		KeySpend:      -1,
 	}
 	header := http.Header{
 		"Content-Type":      []string{"application/json"},
@@ -138,7 +147,7 @@ func probeQuota(cfg pluginConfig, callbackID, accessToken string) quotaSnapshot 
 	}
 	body := []byte(`{"model":"claude-haiku-4-5","max_tokens":0,"messages":[{"role":"user","content":"x"}]}`)
 
-	resp, err := hostHTTPDo(callbackID, http.MethodPost, cfg.RelayURL+"/v1/messages", header, body)
+	resp, err := hostapi.HTTPDo(callbackID, http.MethodPost, cfg.RelayURL+"/v1/messages", header, body)
 	if err != nil {
 		snapshot.Error = err.Error()
 		return snapshot
@@ -148,7 +157,6 @@ func probeQuota(cfg pluginConfig, callbackID, accessToken string) quotaSnapshot 
 	snapshot.Utilization7d = utilizationPercent(resp.Headers.Get("anthropic-ratelimit-unified-7d-utilization"))
 	snapshot.Reset5h = headerInt(resp.Headers.Get("anthropic-ratelimit-unified-5h-reset"))
 	snapshot.Reset7d = headerInt(resp.Headers.Get("anthropic-ratelimit-unified-7d-reset"))
-	snapshot.KeySpend = headerFloat(resp.Headers.Get("x-litellm-key-spend"))
 
 	// 401/403 means the token is the problem, not the quota; say so rather than showing
 	// an empty meter that looks like "no usage".
@@ -170,14 +178,6 @@ func utilizationPercent(raw string) float64 {
 	}
 	if value <= 1 {
 		return value * 100
-	}
-	return value
-}
-
-func headerFloat(raw string) float64 {
-	value, ok := parseFloat(raw)
-	if !ok {
-		return -1
 	}
 	return value
 }

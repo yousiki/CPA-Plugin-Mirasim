@@ -1,22 +1,27 @@
 PLUGIN_ID  := mirasim
-# config.go is the single source of truth for the version; the release artifacts and the
-# store registry must agree with what plugin.register reports.
-VERSION    := $(shell sed -n 's/^const pluginVersion = "\(.*\)"$$/\1/p' config.go)
+VERSION_GO := internal/config/config.go
+# internal/config is the single source of truth for the version; the release artifacts and
+# the store registry must agree with what plugin.register reports.
+VERSION    := $(shell sed -n 's/^const Version = "\(.*\)"$$/\1/p' $(VERSION_GO))
 GOOS       := linux
 GOARCH     := amd64
 DIST       := dist
 ARCHIVE    := $(DIST)/$(PLUGIN_ID)_$(VERSION)_$(GOOS)_$(GOARCH).zip
 
-.PHONY: all build release clean vet check
+.PHONY: all build release clean vet test check
 
 all: build
 
 vet:
 	go vet ./...
 
+# Everything outside cmd/mirasim is plain Go, so this needs no host and no cgo.
+test:
+	go test ./...
+
 # Builds dist/mirasim.so for the target container platform.
 build:
-	@test -n "$(VERSION)" || { echo "could not read pluginVersion from config.go"; exit 1; }
+	@test -n "$(VERSION)" || { echo "could not read Version from $(VERSION_GO)"; exit 1; }
 	mkdir -p $(DIST)
 	docker build \
 		--platform $(GOOS)/$(GOARCH) \
@@ -36,7 +41,7 @@ release: build
 	@echo "built $(ARCHIVE)"
 	@cat $(DIST)/checksums.txt
 
-check: vet
+check: vet test
 	@echo "version $(VERSION)"
 
 clean:
