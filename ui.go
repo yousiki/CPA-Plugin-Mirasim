@@ -90,7 +90,8 @@ func loginPageHTML(state string) string {
 <div id="msg" class="msg hidden"></div>
 <footer>This page talks only to this proxy. The verification code is single-use and the session expires in 10 minutes.</footer>
 </main>
-<script>
+<!-- data-cfasync="false": see the note on the CSP header in console.go. -->
+<script data-cfasync="false">
 (function () {
   var state = ` + jsString(state) + `;
   var base = "/v0/resource/plugins/` + pluginID + `";
@@ -194,7 +195,8 @@ func statusPageHTML(configured bool, token string) string {
 <div id="msg" class="msg hidden"></div>
 <footer id="foot"></footer>
 </main>
-<script>
+<!-- data-cfasync="false": see the note on the CSP header in console.go. -->
+<script data-cfasync="false">
 (function () {
   var configured = ` + boolLiteral(configured) + `;
   var STORAGE_KEY = "mirasim.console_token";
