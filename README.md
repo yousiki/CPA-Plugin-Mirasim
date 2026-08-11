@@ -4,9 +4,10 @@ Makes Mirasim (Mirofish) a first-class CLIProxyAPI subscription, alongside Claud
 and Codex: one login card in the management panel, email + verification code instead of
 an OAuth callback, and credentials that CPA rotates on its own schedule.
 
-It replaces `mirasim-sidecar`, a separate service that kept a `claude-api-key` credential
-alive from the outside because CPA deliberately excludes API-key credentials from its
-auto-refresh scheduler.
+A plugin is the right shape for this because Mirasim hands out a 1-hour access JWT and
+CPA deliberately excludes API-key credentials from its auto-refresh scheduler: carried as
+a `claude-api-key` entry, an account would have nothing renewing it. A plugin auth
+provider is refreshed by the host itself.
 
 ## What it does
 
@@ -92,8 +93,7 @@ so the reading is free of model cost. It does spend one slot of the ~8000-reques
 window, which is why probes are rationed:
 
 - **automatically**, once per account per credential refresh (~25 min by default) — the
-  probe rides `auth.refresh`, which is the same cadence the sidecar's 30-minute
-  scheduler had, and needs no timer of its own;
+  probe rides `auth.refresh` and needs no timer of its own;
 - **once on demand**, when an account has no reading yet and the console is opened;
 - **on request**, via the console's *Read quota* button, rate-limited to once a minute
   per account.
@@ -232,29 +232,10 @@ persists to the database. The same applies to credentials: upload them through
 `POST /v0/management/auth-files` rather than dropping files into the mirrored auth
 directory.
 
-## Migrating from mirasim-sidecar
-
-The sidecar holds each account's refresh token in its SQLite state; the plugin needs
-nothing else. Refresh tokens rotate but the previous one stays valid, so minting a fresh
-pair for the plugin does not disturb a still-running sidecar and the two can overlap
-during the cutover.
-
-Order matters: **stop the sidecar first**. It self-heals missing credentials, so deleting
-its `claude-api-key` entries while it runs just means it recreates them on the next cycle.
-
-1. Migrate the accounts — for each row in the sidecar's `accounts` table, exchange the
-   refresh token at `POST {login}/auth/refresh` and upload
-   `mirasim-<email>.json` via `POST /v0/management/auth-files`.
-2. Stop the sidecar.
-3. Replace the `claude-api-key` list with the entries that do *not* point at the relay
-   (`PUT` takes a bare array and replaces the whole list; `auth-index` is server-computed
-   and must not be sent back).
-4. Confirm a request is served by a plugin credential: `/v1/models` should list the ids
-   under `owned_by: mirasim`, and the credential's `success` counter in
-   `GET /v0/management/auth-files` should advance. Do not use `claude-opus-4-8` for this —
-   Claude OAuth credentials advertise that name too, so it proves nothing.
-5. Remove the sidecar service. Keep its volume until the plugin has run through a few
-   refresh cycles; it is the only rollback path that avoids re-login.
+To confirm a request is really being served by a plugin credential: `/v1/models` should
+list the ids under `owned_by: mirasim`, and the credential's `success` counter in
+`GET /v0/management/auth-files` should advance. Do not use `claude-opus-4-8` for this —
+Claude OAuth credentials advertise that name too, so it proves nothing.
 
 ## Local development stack
 

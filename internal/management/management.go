@@ -1,5 +1,5 @@
 // Package management serves the browser-facing routes: the login flow that replaces an
-// OAuth callback, and the operator console that replaces the sidecar's web UI.
+// OAuth callback, and the operator console.
 //
 // Both live under /v0/resource/plugins/mirasim/. The host serves that prefix without
 // management authentication and only for GET, so every action is a GET carrying its

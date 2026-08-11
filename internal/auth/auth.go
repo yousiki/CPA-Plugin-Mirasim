@@ -163,8 +163,8 @@ func Refresh(request []byte) ([]byte, error) {
 		email = claimed
 	}
 
-	// Ride the host's refresh cadence for the quota reading, which is what gave the
-	// sidecar's 30-minute scheduler its "one probe per account per cycle" behaviour.
+	// Ride the host's refresh cadence for the quota reading: one probe per account per
+	// cycle, without a timer of our own.
 	quota.ProbeAsync(cfg, email, pair.Access)
 
 	// Leave ID and FileName to the host: its refresh adapter carries them over from the

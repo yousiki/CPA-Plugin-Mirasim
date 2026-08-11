@@ -2,14 +2,14 @@
 //
 // The relay reports usage through Anthropic's unified rate-limit headers. There is no
 // usage endpoint to query, but an invalid request still carries the headers, so the
-// sidecar's trick carries over: send `max_tokens: 0`, get a 400 with
+// reading is taken off one: send `max_tokens: 0`, get a 400 with
 // `x-litellm-response-cost: 0`, and read the headers off it. The probe costs nothing but
 // does spend one slot of the ~8000-request 5h window, which is why it is rate-limited
 // here rather than run per page load.
 //
 // Probes ride the host's own refresh cadence (one per account per refresh, ~25 min by
-// default), the same shape the sidecar's 30-minute scheduler had. The console reads the
-// cache and can force a fresh probe on demand.
+// default), so there is no timer here. The console reads the cache and can force a fresh
+// probe on demand.
 package quota
 
 import (
@@ -35,10 +35,9 @@ const minInterval = 60 * time.Second
 //	anthropic-ratelimit-unified-7d-utilization: 0.22689583333333332
 //	anthropic-ratelimit-unified-7d-reset: 1786673322
 //
-// so utilization is a 0..1 fraction. The 5h headers the sidecar also looked for were
-// *not* present in any observed response — the fields are kept because reading them
-// costs nothing if the gateway starts sending them, but nothing should assume they
-// arrive.
+// so utilization is a 0..1 fraction. The 5h headers were *not* present in any observed
+// response — the fields are kept because reading them costs nothing if the gateway starts
+// sending them, but nothing should assume they arrive.
 //
 // `x-litellm-key-spend` is deliberately NOT read. The relay validates the Mirofish JWT
 // itself and does the per-account accounting that the unified headers above report, then

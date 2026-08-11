@@ -204,7 +204,7 @@ type toggle struct {
 // setSuspended flips one credential's suspension in place.
 //
 // Toggling in place keeps the refresh token, so a resumed account never needs to log in
-// again; the sidecar had to delete the credential instead.
+// again.
 //
 // An account already in the target state is left untouched: a redundant save would make
 // the host reload the credential for nothing, which matters most on the bulk path where
