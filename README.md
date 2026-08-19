@@ -16,7 +16,18 @@ provider is refreshed by the host itself.
 | `auth_provider` | Owns the login flow, parses stored credentials, refreshes the 1-hour access JWT. |
 | `executor` | Forwards Anthropic Messages traffic (streaming included) to the relay. |
 | `model_provider` | Advertises the verified model catalogue per logged-in account. |
+| `model_router` | Diverts requests carrying Anthropic server tools to the built-in claude provider. |
 | `management_api` | Serves the login page and the operator console. |
+
+## Server tools are diverted, not forwarded
+
+Anthropic server tools — WebSearch, WebFetch, code execution — run inside Anthropic's
+own API, and the relay's Bedrock backend rejects their tool types outright. Rather than
+letting such a request burn a turn on a 400, the `model_router` capability claims any
+claude-format request that declares one of these tools for a catalogue model and routes
+it to the built-in claude provider, where an OAuth credential can serve it. Without a
+logged-in claude credential the router stands aside and the relay's own rejection is
+returned unchanged.
 
 ## How login works
 

@@ -20,7 +20,7 @@ const PluginID = "mirasim"
 
 // Version is the single source of truth for the plugin version; the Makefile scrapes it
 // out of this file, so keep the `const Version = "..."` form on one line.
-const Version = "0.1.0"
+const Version = "0.2.0"
 
 // ModelSpec is one advertised model id and its context window.
 type ModelSpec struct {

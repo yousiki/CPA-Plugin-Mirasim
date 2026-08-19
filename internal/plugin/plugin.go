@@ -15,6 +15,7 @@ import (
 	"github.com/yousiki/CPA-Plugin-Mirasim/internal/executor"
 	"github.com/yousiki/CPA-Plugin-Mirasim/internal/management"
 	"github.com/yousiki/CPA-Plugin-Mirasim/internal/models"
+	"github.com/yousiki/CPA-Plugin-Mirasim/internal/router"
 	"github.com/yousiki/CPA-Plugin-Mirasim/internal/rpc"
 )
 
@@ -38,6 +39,7 @@ type registrationCapability struct {
 	ExecutorInputFormats  []string `json:"executor_input_formats,omitempty"`
 	ExecutorOutputFormats []string `json:"executor_output_formats,omitempty"`
 	ManagementAPI         bool     `json:"management_api"`
+	ModelRouter           bool     `json:"model_router"`
 }
 
 // Handle dispatches one host call.
@@ -67,6 +69,8 @@ func Handle(method string, request []byte) ([]byte, error) {
 		return models.Static(request)
 	case pluginabi.MethodModelForAuth:
 		return models.ForAuth(request)
+	case pluginabi.MethodModelRoute:
+		return router.Route(request)
 
 	case pluginabi.MethodExecutorIdentifier:
 		return rpc.OK(map[string]string{"identifier": config.PluginID})
@@ -144,6 +148,9 @@ func Registration() registration {
 			ExecutorInputFormats:  []string{"claude"},
 			ExecutorOutputFormats: []string{"claude"},
 			ManagementAPI:         true,
+			// Diverts requests carrying Anthropic server tools (WebSearch etc.) to the
+			// built-in claude provider: the relay's Bedrock backend rejects them.
+			ModelRouter: true,
 		},
 	}
 }
