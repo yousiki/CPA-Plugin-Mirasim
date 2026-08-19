@@ -2,11 +2,14 @@ package auth
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/router-for-me/CLIProxyAPI/v7/sdk/pluginapi"
 
 	"github.com/yousiki/CPA-Plugin-Mirasim/internal/config"
 )
@@ -80,4 +83,83 @@ func jwtExpiring(t *testing.T, at time.Time) string {
 	t.Helper()
 	payload := fmt.Sprintf(`{"exp":%d}`, at.Unix())
 	return "header." + base64.RawURLEncoding.EncodeToString([]byte(payload)) + ".signature"
+}
+
+// Parse must turn the stored routing knobs into runtime attributes: the host applies a
+// plugin file's weight itself, but never its priority, and both must also survive in
+// StorageJSON or the next refresh would wipe them.
+func TestParseCarriesWeightAndPriority(t *testing.T) {
+	// pluginapi structs carry no json tags, so the wire keys are the Go field names.
+	raw, err := json.Marshal(pluginapi.AuthParseRequest{
+		Provider: config.PluginID,
+		FileName: "mirasim-a@example.com.json",
+		RawJSON: []byte(`{"type":"mirasim","email":"a@example.com",` +
+			`"access_token":"x","refresh_token":"y","weight":3,"priority":-1}`),
+	})
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+	out, err := Parse(raw)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	var envelope struct {
+		OK     bool            `json:"ok"`
+		Result json.RawMessage `json:"result"`
+	}
+	if err = json.Unmarshal(out, &envelope); err != nil || !envelope.OK {
+		t.Fatalf("envelope: ok=%v err=%v (%s)", envelope.OK, err, out)
+	}
+	var resp pluginapi.AuthParseResponse
+	if err = json.Unmarshal(envelope.Result, &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if !resp.Handled {
+		t.Fatal("Handled = false")
+	}
+	if got := resp.Auth.Attributes["weight"]; got != "3" {
+		t.Errorf("Attributes[weight] = %q, want 3", got)
+	}
+	if got := resp.Auth.Attributes["priority"]; got != "-1" {
+		t.Errorf("Attributes[priority] = %q, want -1", got)
+	}
+	var storage map[string]any
+	if err = json.Unmarshal(resp.Auth.StorageJSON, &storage); err != nil {
+		t.Fatalf("decode storage: %v", err)
+	}
+	if storage["weight"].(float64) != 3 || storage["priority"].(float64) != -1 {
+		t.Errorf("storage carries weight=%v priority=%v, want 3/-1", storage["weight"], storage["priority"])
+	}
+}
+
+// A credential with neither knob must not grow attributes: an empty map and a nil map
+// behave differently in the host's refresh merge, which keeps existing attributes only
+// when the plugin returns none.
+func TestParseWithoutRoutingKnobsReturnsNoAttributes(t *testing.T) {
+	raw, err := json.Marshal(pluginapi.AuthParseRequest{
+		Provider: config.PluginID,
+		RawJSON: []byte(`{"type":"mirasim","email":"a@example.com",` +
+			`"access_token":"x","refresh_token":"y"}`),
+	})
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+	out, err := Parse(raw)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	var envelope struct {
+		OK     bool            `json:"ok"`
+		Result json.RawMessage `json:"result"`
+	}
+	if err = json.Unmarshal(out, &envelope); err != nil || !envelope.OK {
+		t.Fatalf("envelope: ok=%v err=%v", envelope.OK, err)
+	}
+	var resp pluginapi.AuthParseResponse
+	if err = json.Unmarshal(envelope.Result, &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(resp.Auth.Attributes) != 0 {
+		t.Errorf("Attributes = %v, want none", resp.Auth.Attributes)
+	}
 }

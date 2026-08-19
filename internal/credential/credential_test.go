@@ -116,3 +116,43 @@ func TestNilPayloadIsSafe(t *testing.T) {
 	}
 	payload.SetSuspended(true) // must not panic
 }
+
+func TestIntAndSetInt(t *testing.T) {
+	payload, err := Decode([]byte(`{"weight":5,"priority":"-2","note":"keep me"}`))
+	if err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	if payload.Int(WeightKey) != 5 {
+		t.Errorf("Int(weight) = %d, want 5", payload.Int(WeightKey))
+	}
+	// The host's own priority handling accepts a string form, so Int does too.
+	if payload.Int(PriorityKey) != -2 {
+		t.Errorf("Int(priority) = %d, want -2", payload.Int(PriorityKey))
+	}
+	if payload.Int("note") != 0 || payload.Int("missing") != 0 {
+		t.Error("a non-numeric or absent field should read as 0")
+	}
+
+	payload.SetInt(WeightKey, 7)
+	if payload.Int(WeightKey) != 7 {
+		t.Errorf("Int after SetInt = %d, want 7", payload.Int(WeightKey))
+	}
+	// Zero clears: absent is what an untouched credential looks like.
+	payload.SetInt(WeightKey, 0)
+	payload.SetInt(PriorityKey, 0)
+	if _, ok := payload[WeightKey]; ok {
+		t.Error("SetInt(0) should delete the weight key")
+	}
+	if _, ok := payload[PriorityKey]; ok {
+		t.Error("SetInt(0) should delete the priority key")
+	}
+	if payload["note"] != "keep me" {
+		t.Error("SetInt touched an unrelated key")
+	}
+
+	var nilPayload Payload
+	nilPayload.SetInt(WeightKey, 1) // must not panic
+	if nilPayload.Int(WeightKey) != 0 {
+		t.Error("a nil payload should read as 0")
+	}
+}

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -48,6 +49,8 @@ func Parse(request []byte) ([]byte, error) {
 		pair:      mirofish.TokenPair{Access: access, Refresh: refresh},
 		fileName:  req.FileName,
 		suspended: stored.Suspended(),
+		weight:    stored.Int(credential.WeightKey),
+		priority:  stored.Int(credential.PriorityKey),
 		// Parsing is not refreshing. Restamping last_refresh here would reset the host's
 		// rotation clock on every file event and let an access token drift toward expiry
 		// unnoticed.
@@ -169,7 +172,13 @@ func Refresh(request []byte) ([]byte, error) {
 
 	// Leave ID and FileName to the host: its refresh adapter carries them over from the
 	// credential being refreshed, which is authoritative even if the email changed.
-	data := buildAuthData(record{email: email, pair: pair, suspended: stored.Suspended()})
+	data := buildAuthData(record{
+		email:     email,
+		pair:      pair,
+		suspended: stored.Suspended(),
+		weight:    stored.Int(credential.WeightKey),
+		priority:  stored.Int(credential.PriorityKey),
+	})
 	data.ID = req.AuthID
 	data.FileName = ""
 	return rpc.OK(pluginapi.AuthRefreshResponse{
@@ -186,6 +195,10 @@ type record struct {
 	pair      mirofish.TokenPair
 	fileName  string
 	suspended bool
+	// weight and priority are the stored routing knobs; zero means unset. They ride
+	// through every rebuild of the file or the host would lose them on refresh.
+	weight   int64
+	priority int64
 	// lastRefresh preserves an existing rotation timestamp; empty means "now".
 	lastRefresh string
 }
@@ -210,6 +223,8 @@ func buildAuthData(rec record) pluginapi.AuthData {
 		AccessToken:  rec.pair.Access,
 		RefreshToken: rec.pair.Refresh,
 		Suspended:    rec.suspended,
+		Weight:       rec.weight,
+		Priority:     rec.priority,
 	})
 
 	lastRefresh := strings.TrimSpace(rec.lastRefresh)
@@ -228,6 +243,21 @@ func buildAuthData(rec record) pluginapi.AuthData {
 		metadata["disabled"] = true
 	}
 
+	// The scheduler reads both knobs from runtime attributes. The host derives `weight`
+	// from the file on its own when it re-synthesizes, but its plugin path never applies
+	// `priority` — and stamping both here also covers the window between a save and the
+	// watcher's reparse.
+	var attributes map[string]string
+	if rec.weight != 0 || rec.priority != 0 {
+		attributes = make(map[string]string, 2)
+		if rec.weight != 0 {
+			attributes[credential.WeightKey] = strconv.FormatInt(rec.weight, 10)
+		}
+		if rec.priority != 0 {
+			attributes[credential.PriorityKey] = strconv.FormatInt(rec.priority, 10)
+		}
+	}
+
 	return pluginapi.AuthData{
 		Provider:         config.PluginID,
 		ID:               fileName,
@@ -236,6 +266,7 @@ func buildAuthData(rec record) pluginapi.AuthData {
 		Disabled:         rec.suspended,
 		StorageJSON:      storage,
 		Metadata:         metadata,
+		Attributes:       attributes,
 		NextRefreshAfter: NextRefreshAfter(cfg, rec.pair.Access),
 	}
 }

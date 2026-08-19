@@ -91,6 +91,17 @@ makes `confirm()` return false with no dialog at all, which would leave the butt
 dead. Accounts already in the target state are skipped, so pressing *Suspend all* twice
 does not make the host reload every credential for nothing.
 
+The console also sets the scheduler's two routing knobs on every Mirasim credential at
+once: `weight` (share under weighted round-robin, 0–1000000, default 1) and `priority`
+(strict tier — only the highest tier with an available credential is used, default 0, so
+a negative value makes Mirasim a fallback behind default-priority credentials and a
+positive one puts it in front). An empty value resets the knob by deleting the field.
+Both are stored inside the credential file and carried through refresh by the plugin
+itself, because the host applies a plugin file's `weight` but never its `priority`
+(`internal/watcher/synthesizer/file.go` upstream) — `auth.parse` re-stamps both as
+runtime attributes on every reparse. Set them per credential by editing the file's
+top-level `weight`/`priority` fields if the one-for-all sweep is too coarse.
+
 The shell is served without a token — it holds no account data, and the panel's iframe
 has no way to supply one, so gating it would only ever render a raw 403 body. It asks for
 `console_token` once, keeps it in the browser's local storage, and sends it on the data

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -50,6 +51,8 @@ type accountView struct {
 	Status      string          `json:"status"`
 	Disabled    bool            `json:"disabled"`
 	Unavailable bool            `json:"unavailable"`
+	Weight      int64           `json:"weight,omitempty"`
+	Priority    int64           `json:"priority,omitempty"`
 	Expired     string          `json:"expired,omitempty"`
 	SecondsLeft int64           `json:"seconds_left"`
 	Quota       *quota.Snapshot `json:"quota,omitempty"`
@@ -92,6 +95,8 @@ func handleStatusData(cfg config.Config, req request) ([]byte, error) {
 		}
 		access := payload.AccessToken()
 		view.Email = textutil.FirstNonEmpty(payload.Email(), mirofish.JWTEmail(access), entry.Label)
+		view.Weight = payload.Int(credential.WeightKey)
+		view.Priority = payload.Int(credential.PriorityKey)
 		if payload.Suspended() {
 			// The stored flag is authoritative: the runtime record briefly reports active
 			// again right after a save, before the reparse lands.
@@ -131,8 +136,13 @@ func handleStatusAction(req request) ([]byte, error) {
 		return toggleAll(true)
 	case "resume_all":
 		return toggleAll(false)
+	case "set_weight_all":
+		return setRoutingAll(req, credential.WeightKey)
+	case "set_priority_all":
+		return setRoutingAll(req, credential.PriorityKey)
 	default:
-		return errorResponse(http.StatusBadRequest, "op must be suspend, resume, suspend_all or resume_all")
+		return errorResponse(http.StatusBadRequest,
+			"op must be suspend, resume, suspend_all, resume_all, set_weight_all or set_priority_all")
 	}
 }
 
@@ -242,6 +252,106 @@ func setSuspended(authIndex string, disabled bool) (toggle, error) {
 	if disabled {
 		// A suspended account stops being probed, so its reading would go stale silently.
 		quota.Forget(email)
+	}
+	return toggle{email: email, name: name, changed: true}, nil
+}
+
+// -- weight / priority ----------------------------------------------------------
+
+// parseRoutingValue reads the `value` query parameter for a routing sweep. Empty and 0
+// both mean "back to default", which deletes the key from every credential.
+func parseRoutingValue(key, raw string) (int64, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return 0, nil
+	}
+	value, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("value must be an integer")
+	}
+	// The host normalizes a negative weight to 0, which silently drops the credential
+	// from weighted routing — that is what suspend is for, so reject it here. Priority
+	// may be negative: that is how Mirasim is ranked below default-priority credentials.
+	if key == credential.WeightKey && (value < 0 || value > 1_000_000) {
+		return 0, fmt.Errorf("weight must be between 0 and 1000000")
+	}
+	return value, nil
+}
+
+// setRoutingAll writes one routing field on every Mirasim credential, sequentially for
+// the same file-store reason as toggleAll.
+func setRoutingAll(req request, key string) ([]byte, error) {
+	value, err := parseRoutingValue(key, req.Query.Get("value"))
+	if err != nil {
+		return errorResponse(http.StatusBadRequest, err.Error())
+	}
+	entries, err := hostapi.AuthList()
+	if err != nil {
+		return errorResponse(http.StatusBadGateway, err.Error())
+	}
+
+	changed, skipped := 0, 0
+	failed := make([]map[string]any, 0)
+	for _, entry := range entries {
+		if !isOurs(entry) {
+			continue
+		}
+		result, errSet := setRouting(entry.AuthIndex, key, value)
+		switch {
+		case errSet != nil:
+			failed = append(failed, map[string]any{
+				"auth_index": entry.AuthIndex,
+				"email":      textutil.FirstNonEmpty(result.email, entry.Label, entry.Name),
+				"error":      errSet.Error(),
+			})
+		case result.changed:
+			changed++
+		default:
+			skipped++
+		}
+	}
+	return jsonResponse(http.StatusOK, map[string]any{
+		"ok":      true,
+		"field":   key,
+		"value":   value,
+		"changed": changed,
+		"skipped": skipped,
+		"failed":  failed,
+	})
+}
+
+// setRouting writes one credential's weight or priority in place, value 0 clearing it.
+// The save makes the host rewrite the file and re-parse it, which is what turns the
+// stored field into the runtime attribute the scheduler reads.
+func setRouting(authIndex, key string, value int64) (toggle, error) {
+	stored, err := hostapi.AuthGet(authIndex)
+	if err != nil {
+		return toggle{}, err
+	}
+	payload, err := credential.Decode(stored.JSON)
+	if err != nil {
+		return toggle{}, err
+	}
+	if !payload.IsOurs() {
+		return toggle{}, fmt.Errorf("not a %s credential", config.PluginID)
+	}
+
+	email := textutil.FirstNonEmpty(payload.Email(), mirofish.JWTEmail(payload.AccessToken()))
+	name := textutil.FirstNonEmpty(stored.Name, authIndex)
+	if !strings.HasSuffix(name, ".json") {
+		name += ".json"
+	}
+	if payload.Int(key) == value {
+		return toggle{email: email, name: name}, nil
+	}
+
+	payload.SetInt(key, value)
+	updated, err := payload.Encode()
+	if err != nil {
+		return toggle{email: email, name: name}, err
+	}
+	if err = hostapi.AuthSave(name, updated); err != nil {
+		return toggle{email: email, name: name}, err
 	}
 	return toggle{email: email, name: name, changed: true}, nil
 }

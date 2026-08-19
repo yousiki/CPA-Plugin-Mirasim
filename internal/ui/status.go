@@ -35,6 +35,14 @@ func StatusPage(configured bool, token string) string {
   <button id="resumeAll" class="link" type="button">Resume all</button>
   <button id="forget" class="link" type="button">Forget token</button>
 </div>
+<div id="routing" class="routing hidden">
+  <label for="weightInput">weight</label>
+  <input id="weightInput" type="number" min="0" max="1000000" placeholder="default">
+  <button id="weightAll" class="link" type="button">Set weight on all</button>
+  <label for="priorityInput">priority</label>
+  <input id="priorityInput" type="number" placeholder="default">
+  <button id="priorityAll" class="link" type="button">Set priority on all</button>
+</div>
 <table id="table" class="hidden"><thead><tr>
   <th>Account</th><th>State</th><th>Token</th><th>5h window</th><th>7d window</th><th></th>
 </tr></thead><tbody id="rows"></tbody></table>
@@ -123,6 +131,15 @@ func StatusPage(configured bool, token string) string {
       // of its own; hang it off the state, which is what an operator looks at first.
       if (quota && quota.error) { pill.title = quota.error; }
       state.appendChild(pill);
+      if (account.weight || account.priority) {
+        var routingNote = document.createElement("div");
+        routingNote.className = "dim";
+        routingNote.style.fontSize = ".76rem";
+        routingNote.textContent = (account.weight ? "w " + account.weight : "")
+          + (account.weight && account.priority ? " · " : "")
+          + (account.priority ? "p " + account.priority : "");
+        state.appendChild(routingNote);
+      }
       tr.appendChild(state);
 
       var expiry = document.createElement("td");
@@ -174,12 +191,14 @@ func StatusPage(configured bool, token string) string {
 
   var unlock = document.getElementById("unlock");
   var controls = document.getElementById("controls");
+  var routing = document.getElementById("routing");
   var table = document.getElementById("table");
   var tokenInput = document.getElementById("tokenInput");
 
   function setLocked(locked, note) {
     unlock.classList.toggle("hidden", !locked);
     controls.classList.toggle("hidden", locked);
+    routing.classList.toggle("hidden", locked);
     table.classList.toggle("hidden", locked);
     if (locked) {
       rows.textContent = "";
@@ -280,6 +299,64 @@ func StatusPage(configured bool, token string) string {
 
   bulk(suspendAll, "suspend_all", "Suspend all");
   bulk(resumeAll, "resume_all", "Resume all");
+
+  // -- bulk weight / priority ---------------------------------------------------
+  //
+  // Same two-step arming as suspend/resume. An empty input resets the field to its
+  // default by clearing it from every credential.
+  var weightAll = document.getElementById("weightAll");
+  var priorityAll = document.getElementById("priorityAll");
+
+  function routingApply(button, op, input, field, label) {
+    var armed = false;
+    var timer = 0;
+    function disarm() {
+      armed = false;
+      window.clearTimeout(timer);
+      button.textContent = label;
+      button.classList.remove("armed");
+    }
+    button.addEventListener("click", function () {
+      var value = (input.value || "").trim();
+      if (!armed) {
+        armed = true;
+        button.textContent = value === "" ? "Confirm reset to default" : "Confirm " + field + " = " + value;
+        button.classList.add("armed");
+        timer = window.setTimeout(disarm, ARM_MS);
+        return;
+      }
+      disarm();
+      weightAll.disabled = true;
+      priorityAll.disabled = true;
+      var query = new URLSearchParams({ token: token, op: op, value: value });
+      fetch(base + ` + jsString(routes.StatusAction) + ` + "?" + query.toString())
+        .then(function (r) { return r.json(); })
+        .then(function (body) {
+          weightAll.disabled = false;
+          priorityAll.disabled = false;
+          if (body.ok !== true) { show(body.error || "action failed", false); return; }
+          var failed = body.failed || [];
+          var text = (value === "" ? "Reset " + field + " to default on " : "Set " + field + " = " + value + " on ")
+            + (body.changed || 0) + " account(s)";
+          if (body.skipped) { text += " · " + body.skipped + " unchanged"; }
+          if (failed.length) {
+            text += " · " + failed.length + " failed: " + failed.map(function (f) {
+              return (f.email || f.auth_index) + " (" + f.error + ")";
+            }).join("; ");
+          }
+          show(text, failed.length === 0);
+          load(false);
+        })
+        .catch(function (e) {
+          weightAll.disabled = false;
+          priorityAll.disabled = false;
+          show(String(e), false);
+        });
+    });
+  }
+
+  routingApply(weightAll, "set_weight_all", document.getElementById("weightInput"), "weight", "Set weight on all");
+  routingApply(priorityAll, "set_priority_all", document.getElementById("priorityInput"), "priority", "Set priority on all");
 
   document.getElementById("unlockBtn").addEventListener("click", function () {
     var value = (tokenInput.value || "").trim();

@@ -24,6 +24,9 @@ button { margin-top: .8rem; padding: .55rem 1.1rem; font: inherit; font-weight: 
 button:disabled { opacity: .45; cursor: not-allowed; }
 button.link { margin: 0; padding: .25rem .55rem; font-size: .8rem; font-weight: 500; }
 button.armed { border-color: #dc2626; background: color-mix(in srgb, #dc2626 18%, Canvas); }
+.routing { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin: .6rem 0 1rem; }
+.routing label { margin: 0; }
+.routing input { width: 6.5rem; padding: .3rem .5rem; font-size: .85rem; }
 .msg { margin-top: .9rem; padding: .6rem .75rem; border-radius: .45rem; font-size: .88rem; white-space: pre-wrap; }
 .msg.ok { background: color-mix(in srgb, #16a34a 16%, transparent); }
 .msg.err { background: color-mix(in srgb, #dc2626 16%, transparent); }

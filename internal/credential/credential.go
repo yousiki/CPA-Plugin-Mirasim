@@ -8,6 +8,7 @@ package credential
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 
 	"github.com/yousiki/CPA-Plugin-Mirasim/internal/config"
@@ -27,6 +28,16 @@ const SuspendedKey = "suspended"
 // the file self-consistent for anyone reading it; it is not what makes suspension stick.
 const disabledKey = "disabled"
 
+// WeightKey and PriorityKey are the routing knobs inside the auth file. The host reads
+// a top-level `weight` on its own when it re-synthesizes the file; `priority` it applies
+// only for non-plugin credentials, so auth.Parse turns it into the runtime attribute the
+// scheduler reads. Both live in Storage as well: Refresh rebuilds the file from that
+// struct, and a key it does not carry would be wiped on the next rotation.
+const (
+	WeightKey   = "weight"
+	PriorityKey = "priority"
+)
+
 // Storage is the provider-owned credential payload, persisted as the auth file body and
 // merged by the host with its own metadata map.
 type Storage struct {
@@ -35,6 +46,8 @@ type Storage struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 	Suspended    bool   `json:"suspended,omitempty"`
+	Weight       int64  `json:"weight,omitempty"`
+	Priority     int64  `json:"priority,omitempty"`
 }
 
 // Payload is a stored auth file as read back from the host, with unknown keys intact.
@@ -59,6 +72,42 @@ func (p Payload) String(key string) string {
 	}
 	value, _ := p[key].(string)
 	return strings.TrimSpace(value)
+}
+
+// Int reads an integer field. JSON numbers decode as float64; a stray string form is
+// accepted too because the host's own priority handling does the same.
+func (p Payload) Int(key string) int64 {
+	if p == nil {
+		return 0
+	}
+	switch value := p[key].(type) {
+	case float64:
+		return int64(value)
+	case int64:
+		// What SetInt wrote before the payload has been re-encoded.
+		return value
+	case string:
+		parsed, err := strconv.ParseInt(strings.TrimSpace(value), 10, 64)
+		if err != nil {
+			return 0
+		}
+		return parsed
+	default:
+		return 0
+	}
+}
+
+// SetInt writes an integer field in place. Zero deletes the key: absent is what an
+// untouched credential looks like, and the host itself treats priority 0 as unset.
+func (p Payload) SetInt(key string, value int64) {
+	if p == nil {
+		return
+	}
+	if value == 0 {
+		delete(p, key)
+		return
+	}
+	p[key] = value
 }
 
 func (p Payload) Email() string        { return p.String("email") }
