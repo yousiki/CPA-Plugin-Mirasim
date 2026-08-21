@@ -20,7 +20,11 @@ const PluginID = "mirasim"
 
 // Version is the single source of truth for the plugin version; the Makefile scrapes it
 // out of this file, so keep the `const Version = "..."` form on one line.
-const Version = "0.3.2"
+const Version = "0.4.2"
+
+// DesktopClientVersion is the version the Mirasim desktop client reports in
+// x-mirasim-client. Read out of Mirasim 0.0.209; bump it when a newer build is verified.
+const DesktopClientVersion = "0.0.209"
 
 // ModelSpec is one advertised model id and its context window.
 type ModelSpec struct {
@@ -67,6 +71,9 @@ type Config struct {
 	RefreshIntervalSeconds int    `yaml:"refresh_interval_seconds"`
 	ContextBeta            string `yaml:"context_beta"`
 	HTTPTimeoutSeconds     int    `yaml:"http_timeout_seconds"`
+	DeviceSigning          bool   `yaml:"device_signing"`
+	DeviceKeyPath          string `yaml:"device_key_path"`
+	ClientVersion          string `yaml:"client_version"`
 
 	// Models is the parsed form of ModelIDs, or DefaultModels when it is empty. It is
 	// never read from YAML - `yaml:"-"` keeps a stray `models:` key in the config from
@@ -92,7 +99,16 @@ func Default() Config {
 		// 1M context is opted into with a header, never with a model-name suffix.
 		ContextBeta:        "context-1m-2025-08-07",
 		HTTPTimeoutSeconds: 120,
-		Models:             DefaultModels,
+		// The relay accepts an optional per-device signature (see internal/relaysig). It
+		// is on by default because that is what the desktop client does, and because it
+		// negotiates itself away: a relay that answers /v1/device/session with 404 or 501
+		// is left on the plain access token.
+		DeviceSigning: true,
+		// What the desktop client sends in x-mirasim-client. It is a client-build hint the
+		// relay may gate on, so the observed desktop value is the safe default rather than
+		// this plugin's own version.
+		ClientVersion: DesktopClientVersion,
+		Models:        DefaultModels,
 	}
 }
 
@@ -108,6 +124,10 @@ func Decode(raw []byte) (Config, error) {
 	cfg.PublicBaseURL = trimTrailingSlash(cfg.PublicBaseURL)
 	cfg.ConsoleToken = strings.TrimSpace(cfg.ConsoleToken)
 	cfg.ContextBeta = strings.TrimSpace(cfg.ContextBeta)
+	cfg.DeviceKeyPath = strings.TrimSpace(cfg.DeviceKeyPath)
+	if cfg.ClientVersion = strings.TrimSpace(cfg.ClientVersion); cfg.ClientVersion == "" {
+		cfg.ClientVersion = Default().ClientVersion
+	}
 	if cfg.RefreshIntervalSeconds <= 0 {
 		cfg.RefreshIntervalSeconds = Default().RefreshIntervalSeconds
 	}

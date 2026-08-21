@@ -134,6 +134,9 @@ func Registration() registration {
 				{Name: "refresh_interval_seconds", Type: pluginapi.ConfigFieldTypeInteger, Description: "How often the host refreshes each credential. Access tokens live ~3600s; default 1500."},
 				{Name: "context_beta", Type: pluginapi.ConfigFieldTypeString, Description: "anthropic-beta header opting into the 1M context window. Default context-1m-2025-08-07; empty disables it."},
 				{Name: "http_timeout_seconds", Type: pluginapi.ConfigFieldTypeInteger, Description: "Timeout for non-streaming upstream calls. Default 120."},
+				{Name: "device_signing", Type: pluginapi.ConfigFieldTypeBoolean, Description: "Sign relay requests with a device key (mrs-sig-v1), as the desktop client does. Default true; it negotiates itself away on a relay that does not serve /v1/device/session."},
+				{Name: "device_key_path", Type: pluginapi.ConfigFieldTypeString, Description: "Where the Ed25519 device key is kept. Default ~/.mirasim/cpa-plugin-device.json; a key that cannot be written is kept in memory only."},
+				{Name: "client_version", Type: pluginapi.ConfigFieldTypeString, Description: "Value sent in x-mirasim-client. Default is the observed desktop client version (" + config.DesktopClientVersion + ")."},
 			},
 		},
 		Capabilities: registrationCapability{

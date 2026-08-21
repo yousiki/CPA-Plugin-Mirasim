@@ -77,6 +77,41 @@ plugins:
 | `refresh_interval_seconds` | `1500` | Access tokens live ~3600s. |
 | `context_beta` | `context-1m-2025-08-07` | The 1M context window is opted into with a header, never a model-name suffix. |
 | `http_timeout_seconds` | `120` | Non-streaming upstream calls. |
+| `device_signing` | `true` | Sign relay requests the way the desktop client does. See below. |
+| `device_key_path` | `~/.mirasim/cpa-plugin-device.json` | Where the Ed25519 device key lives. |
+| `client_version` | `0.0.209` | Value sent in `x-mirasim-client`. |
+
+## Device signing
+
+The relay accepts an optional per-device signature, `mrs-sig-v1`, read out of the desktop
+client (Mirasim 0.0.209) and reimplemented in `internal/relaysig`. An Ed25519 device key is
+traded once at `POST /v1/device/session` for a short-lived ticket; from then on the ticket
+replaces the account JWT in `Authorization` and every request carries a detached signature
+over six `\n`-joined fields — `mrs-sig-v1`, the upper-case method, the path (no query
+string), the millisecond timestamp, a 12-byte nonce, and the sha256 of the body — in
+`x-mirasim-sig`, next to `-ts`, `-nonce`, `-device` and `-client`.
+
+**`relay.mirasim.ai` requires it.** An unsigned request is answered
+
+    401 {"code":"client_outdated","message":"this request must be signed"}
+
+whatever the access token is, and whatever `x-mirasim-client` says — the value is not
+checked at all (`0.0.1`, `99.0.0` and no header at all are all accepted alongside a valid
+signature). The code name is about the client not signing, not about its version. Signing
+was optional when this plugin's earlier versions were written, which is why a build before
+0.4.2 now fails every relay call with that error.
+
+So the first ticket is waited for, up to 5 seconds, rather than letting a request go out
+unsigned and be rejected. Renewals stay in the background: an ageing ticket is re-minted
+while the one in hand keeps serving traffic. A handshake that fails does not hold the
+request — the plain-token attempt goes out immediately, which is still the right thing for
+a relay that answers `/v1/device/session` with 404 or 501 (that stands the account down for
+15 minutes).
+
+One deliberate divergence from the desktop client: it re-mints on every 401 forever, so a
+relay that hands out tickets but rejects the signature would fail every request. Here three
+refusals in a row fall back to the plain token for 15 minutes instead — which on this relay
+means failing fast rather than looping on mints.
 
 ## Console and quota
 
@@ -179,6 +214,7 @@ internal/
   quota/          the rate-limit probe and its cache
   auth/           auth.parse / login.start / login.poll / refresh, and login sessions
   models/         model.static / model.for_auth
+  relaysig/       the mrs-sig-v1 device signature and the ticket state machine
   executor/       the relay forwarder and its SSE framing
   management/     route registration, the console feed, and suspend/resume
   ui/             the two self-contained HTML pages

@@ -18,6 +18,7 @@ import (
 	"github.com/yousiki/CPA-Plugin-Mirasim/internal/config"
 	"github.com/yousiki/CPA-Plugin-Mirasim/internal/credential"
 	"github.com/yousiki/CPA-Plugin-Mirasim/internal/hostapi"
+	"github.com/yousiki/CPA-Plugin-Mirasim/internal/relaysig"
 	"github.com/yousiki/CPA-Plugin-Mirasim/internal/rpc"
 	"github.com/yousiki/CPA-Plugin-Mirasim/internal/textutil"
 )
@@ -105,6 +106,30 @@ func messagesURL(cfg config.Config, suffix string) string {
 	return cfg.RelayURL + "/v1/messages" + suffix
 }
 
+// relayHeaders builds the upstream headers and, when a device session is live, upgrades
+// them to a signed request carrying the relay ticket instead of the account JWT.
+//
+// The second return value says whether the request went out signed, which is what makes a
+// 401 actionable: a rejected ticket has to be dropped and re-minted, while a 401 on an
+// unsigned request is just a bad credential.
+func relayHeaders(cfg config.Config, req pluginapi.ExecutorRequest, token, method, url string, body []byte, stream bool) (http.Header, bool) {
+	header := upstreamHeaders(cfg, req, token, stream)
+	signed := relaysig.Sign(cfg, header, relaysig.Request{
+		Token:  token,
+		Method: method,
+		URL:    url,
+		Body:   body,
+	})
+	return header, signed
+}
+
+// noteRelayStatus feeds an upstream status back into the device-session state machine.
+func noteRelayStatus(cfg config.Config, token string, signed bool, status int) {
+	if signed && status == http.StatusUnauthorized {
+		relaysig.Refused(cfg, token)
+	}
+}
+
 // -- executor.execute ---------------------------------------------------------
 
 func Execute(request []byte) ([]byte, error) {
@@ -118,11 +143,13 @@ func Execute(request []byte) ([]byte, error) {
 		return rpc.ErrorStatus("invalid_credential", err.Error(), http.StatusUnauthorized), nil
 	}
 
-	resp, err := hostapi.HTTPDo(req.HostCallbackID, http.MethodPost, messagesURL(cfg, ""),
-		upstreamHeaders(cfg, req.ExecutorRequest, token, false), req.Payload)
+	target := messagesURL(cfg, "")
+	header, signed := relayHeaders(cfg, req.ExecutorRequest, token, http.MethodPost, target, req.Payload, false)
+	resp, err := hostapi.HTTPDo(req.HostCallbackID, http.MethodPost, target, header, req.Payload)
 	if err != nil {
 		return nil, err
 	}
+	noteRelayStatus(cfg, token, signed, resp.StatusCode)
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return upstreamErrorEnvelope(resp.StatusCode, resp.Body), nil
 	}
@@ -142,11 +169,13 @@ func CountTokens(request []byte) ([]byte, error) {
 		return rpc.ErrorStatus("invalid_credential", err.Error(), http.StatusUnauthorized), nil
 	}
 
-	resp, err := hostapi.HTTPDo(req.HostCallbackID, http.MethodPost, messagesURL(cfg, "/count_tokens"),
-		upstreamHeaders(cfg, req.ExecutorRequest, token, false), req.Payload)
+	target := messagesURL(cfg, "/count_tokens")
+	header, signed := relayHeaders(cfg, req.ExecutorRequest, token, http.MethodPost, target, req.Payload, false)
+	resp, err := hostapi.HTTPDo(req.HostCallbackID, http.MethodPost, target, header, req.Payload)
 	if err != nil {
 		return nil, err
 	}
+	noteRelayStatus(cfg, token, signed, resp.StatusCode)
 	switch {
 	case resp.StatusCode >= 200 && resp.StatusCode <= 299:
 		return rpc.OK(pluginapi.ExecutorResponse{Payload: resp.Body, Headers: resp.Headers})
@@ -178,11 +207,13 @@ func ExecuteStream(request []byte) ([]byte, error) {
 		return rpc.ErrorStatus("invalid_credential", err.Error(), http.StatusUnauthorized), nil
 	}
 
-	stream, err := hostapi.HTTPDoStream(req.HostCallbackID, http.MethodPost, messagesURL(cfg, ""),
-		upstreamHeaders(cfg, req.ExecutorRequest, token, true), req.Payload)
+	target := messagesURL(cfg, "")
+	header, signed := relayHeaders(cfg, req.ExecutorRequest, token, http.MethodPost, target, req.Payload, true)
+	stream, err := hostapi.HTTPDoStream(req.HostCallbackID, http.MethodPost, target, header, req.Payload)
 	if err != nil {
 		return nil, err
 	}
+	noteRelayStatus(cfg, token, signed, stream.StatusCode)
 	responseHeaders := hostapi.MapToHeader(stream.Headers)
 
 	if stream.StatusCode < 200 || stream.StatusCode > 299 {

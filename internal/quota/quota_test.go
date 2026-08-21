@@ -68,3 +68,20 @@ func TestStoreRejectsAnEmptyEmail(t *testing.T) {
 		t.Error("an empty email was cached")
 	}
 }
+
+// The relay's error code is the whole diagnostic value of a 401; flattening it to the
+// status code is what made a rejected credential indistinguishable from a rejected ticket.
+func TestRelayErrorDetail(t *testing.T) {
+	cases := map[string]string{
+		`{"error":{"code":"token_invalid","message":"invalid user token","type":"authentication_error"},"type":"error"}`: "token_invalid",
+		`{"error":{"code":"token_missing","message":"missing user token"},"type":"error"}`:                               "token_missing",
+		`{"error":{"message":"device session expired"}}`:                                                                 "device session expired",
+		`not json at all`: "",
+		`{}`:              "",
+	}
+	for body, want := range cases {
+		if got := relayErrorDetail([]byte(body)); got != want {
+			t.Fatalf("relayErrorDetail(%q) = %q, want %q", body, got, want)
+		}
+	}
+}

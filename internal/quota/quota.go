@@ -13,6 +13,7 @@
 package quota
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -21,6 +22,8 @@ import (
 
 	"github.com/yousiki/CPA-Plugin-Mirasim/internal/config"
 	"github.com/yousiki/CPA-Plugin-Mirasim/internal/hostapi"
+	"github.com/yousiki/CPA-Plugin-Mirasim/internal/relaysig"
+	"github.com/yousiki/CPA-Plugin-Mirasim/internal/textutil"
 )
 
 // minInterval keeps forced probes from being spammed by a console reload.
@@ -146,10 +149,23 @@ func Probe(cfg config.Config, callbackID, accessToken string) Snapshot {
 	}
 	body := []byte(`{"model":"claude-haiku-4-5","max_tokens":0,"messages":[{"role":"user","content":"x"}]}`)
 
-	resp, err := hostapi.HTTPDo(callbackID, http.MethodPost, cfg.RelayURL+"/v1/messages", header, body)
+	// Probes ride the same device session as real traffic; a probe that skipped signing
+	// would read the rate-limit headers of a request the relay accounted differently.
+	target := cfg.RelayURL + "/v1/messages"
+	signed := relaysig.Sign(cfg, header, relaysig.Request{
+		Token:  accessToken,
+		Method: http.MethodPost,
+		URL:    target,
+		Body:   body,
+	})
+
+	resp, err := hostapi.HTTPDo(callbackID, http.MethodPost, target, header, body)
 	if err != nil {
 		snapshot.Error = err.Error()
 		return snapshot
+	}
+	if signed && resp.StatusCode == http.StatusUnauthorized {
+		relaysig.Refused(cfg, accessToken)
 	}
 	snapshot.Status = resp.StatusCode
 	snapshot.Utilization5h = utilizationPercent(resp.Headers.Get("anthropic-ratelimit-unified-5h-utilization"))
@@ -158,13 +174,37 @@ func Probe(cfg config.Config, callbackID, accessToken string) Snapshot {
 	snapshot.Reset7d = headerInt(resp.Headers.Get("anthropic-ratelimit-unified-7d-reset"))
 
 	// 401/403 means the token is the problem, not the quota; say so rather than showing
-	// an empty meter that looks like "no usage".
+	// an empty meter that looks like "no usage". The relay's own error code is carried
+	// through because "HTTP 401" alone cannot be acted on: token_invalid means the stored
+	// access token is expired or not accepted, token_missing means no credential reached
+	// the relay at all, and a 401 on a signed request means the device ticket was refused.
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-		snapshot.Error = "credential rejected by the relay (HTTP " + strconv.Itoa(resp.StatusCode) + ")"
+		snapshot.Error = "credential rejected by the relay (HTTP " + strconv.Itoa(resp.StatusCode)
+		if detail := relayErrorDetail(resp.Body); detail != "" {
+			snapshot.Error += ", " + detail
+		}
+		if signed {
+			snapshot.Error += ", signed request"
+		}
+		snapshot.Error += ")"
 	} else if snapshot.Utilization5h < 0 && snapshot.Utilization7d < 0 {
 		snapshot.Error = "relay returned no rate-limit headers (HTTP " + strconv.Itoa(resp.StatusCode) + ")"
 	}
 	return snapshot
+}
+
+// relayErrorDetail pulls the relay's own error code out of a rejection body.
+func relayErrorDetail(body []byte) string {
+	var parsed struct {
+		Error struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(body, &parsed) != nil {
+		return ""
+	}
+	return textutil.Truncate(strings.TrimSpace(textutil.FirstNonEmpty(parsed.Error.Code, parsed.Error.Message)), 80)
 }
 
 // utilizationPercent converts the gateway's 0..1 fraction to a percentage. A value above
