@@ -125,7 +125,7 @@ func Registration() registration {
 			GitHubRepository: "https://github.com/yousiki/CPA-Plugin-Mirasim",
 			Logo:             config.Logo,
 			ConfigFields: []pluginapi.ConfigField{
-				{Name: "login_url", Type: pluginapi.ConfigFieldTypeString, Description: "Mirofish auth backend base URL. Default https://admin.test.mirofish.ai (the staging host compiled into the Mirasim app)."},
+				{Name: "login_url", Type: pluginapi.ConfigFieldTypeString, Description: "Mirofish auth backend base URL. Default https://auth.mirasim.ai (the retired admin.test.mirofish.ai host answers 403 since 2026-08-21)."},
 				{Name: "relay_url", Type: pluginapi.ConfigFieldTypeString, Description: "Mirasim relay base URL serving the Anthropic Messages API. Default https://mirasim-relay.mirofish.ai."},
 				{Name: "public_base_url", Type: pluginapi.ConfigFieldTypeString, Description: "Externally reachable base URL of this CPA instance, e.g. https://api.example.com. Required for the login page link to be openable from a remote browser."},
 				{Name: "model_ids", Type: pluginapi.ConfigFieldTypeString, Description: "Override the advertised catalogue: \"id[:contextLength],...\". Empty uses the built-in verified list."},

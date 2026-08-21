@@ -1,0 +1,1590 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "mirasim-auth",
+        "version": "0.1.0"
+    },
+    "paths": {
+        "/auth/code": {
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Send Code",
+                "description": "\u53d1\u9001\u90ae\u7bb1\u9a8c\u8bc1\u7801(\u6ce8\u518c\u5373\u53d1\u7801;\u5e93\u91cc\u6ca1\u6709\u8be5\u7528\u6237\u4e5f\u7167\u53d1,\u9a8c\u8bc1\u901a\u8fc7\u540e\u81ea\u52a8\u6ce8\u518c)\u3002\n\n\u9650\u6d41\u4e09\u9053\u95f8\u5728 service \u5c42(\u5168\u7ad9\u6bcf\u5206\u949f / \u6bcf IP \u6bcf\u5c0f\u65f6 / \u6bcf\u90ae\u7bb1\u6bcf\u5929,\u89c1 `_guard_send_quota`);\n\u8fd9\u91cc\u53ea\u8d1f\u8d23\u628a\u300c\u53cd\u4ee3\u5b9e\u9645\u770b\u5230\u7684\u5bf9\u7aef\u300d\u6458\u51fa\u6765 \u2014\u2014 \u4e3a\u4ec0\u4e48\u4e0d\u80fd\u7528\u5ba1\u8ba1\u90a3\u4e2a\u53d6\u6cd5,\u89c1 `api/client_ip`\n\u7684\u6a21\u5757\u5934(\u4e00\u53e5\u8bdd:\u6700\u5de6\u6bb5\u662f\u5ba2\u6237\u7aef\u81ea\u5df1\u5199\u7684,\u62ff\u5b83\u5f53\u9650\u6d41\u952e\u7b49\u4e8e\u6ca1\u9650\u6d41)\u3002",
+                "operationId": "send_code_auth_code_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SendCodeRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SendCodeResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/verify": {
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Verify Code",
+                "description": "\u6821\u9a8c\u9a8c\u8bc1\u7801 \u2192 \u5e93\u91cc\u6ca1\u6709\u5219\u81ea\u52a8\u6ce8\u518c \u2192 \u7b7e\u53d1 access + refresh\u3002\n\n\u731c\u9519\u6b21\u6570\u7531 service \u5c42\u6570(\u89c1 `verify_code`)\u2014\u2014 \u8fd9\u6761\u8def\u5f84\u4e0a\u731c\u4e2d\u5373\u7b49\u4e8e\u62ff\u5230\u90a3\u4e2a\u90ae\u7bb1\u7684\u8d26\u53f7\u3002",
+                "operationId": "verify_code_auth_verify_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/VerifyCodeRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TokenResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/register": {
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Register",
+                "operationId": "register_auth_register_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RegisterRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/login": {
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Login",
+                "operationId": "login_auth_login_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LoginRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TokenResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/refresh": {
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Refresh",
+                "operationId": "refresh_auth_refresh_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RefreshRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TokenResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/invite/redeem": {
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Redeem Invite",
+                "description": "\u5151\u6362\u9080\u8bf7\u7801 = \u52a0\u5165\u67d0\u79df\u6237\u3002**\u8981\u767b\u5f55\u6001**(CurrentUser)\u2014\u2014 \u9080\u8bf7\u7801\u662f\u6388\u6743\u51ed\u8bc1,\u4e0d\u662f\u767b\u5f55\u65b9\u5f0f\u3002\n\n\u6210\u529f\u5373\u8fd4\u56de**\u65b0**\u4ee4\u724c(\u5e26\u65b0\u7684 tenant/plan claim),\u5151\u6362\u7acb\u523b\u751f\u6548,\u4e0d\u7528\u91cd\u767b\u4e5f\u4e0d\u7528\u7b49\u7eed\u671f\u3002\n\u5931\u8d25\u4e00\u5f8b 400 + \u540c\u4e00\u53e5\u8bdd(\u4e0d\u533a\u5206\u4e0d\u5b58\u5728/\u5df2\u540a\u9500/\u5df2\u8fc7\u671f/\u5df2\u7528\u5c3d,\u907f\u514d\u6210\u4e3a\u7206\u7834\u9884\u8a00\u673a)\u3002",
+                "operationId": "redeem_invite_auth_invite_redeem_post",
+                "parameters": [
+                    {
+                        "name": "authorization",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "",
+                            "title": "Authorization"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RedeemInviteRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TokenResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/referral": {
+            "get": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "My Referral",
+                "description": "\u6211\u7684\u666e\u901a\u9080\u8bf7\u7801\u4e0e\u88c2\u53d8\u8fdb\u5ea6\u3002**\u7eaf\u8bfb,\u6ca1\u6709\u526f\u4f5c\u7528** \u2014\u2014 \u5ba2\u6237\u7aef\u6bcf\u6b21\u6253\u5f00\u8d26\u53f7\u9875\u90fd\u4f1a\u8c03\u5b83\u3002\n\n\u8fd8\u6ca1\u751f\u6210\u65f6 `code` \u4e3a null(\u4e0d\u5728\u8fd9\u91cc\u987a\u624b\u94f8\u4e00\u5f20:\u4e00\u4e2a GET \u4e0d\u8be5\u6539\u53d8\u4e16\u754c,\u800c\u4e14\"\u6253\u5f00\u4e00\u6b21\u8bbe\u7f6e\u9875\n\u5c31\u767d\u53d1\u4e00\u5f20\u7801\"\u4f1a\u8ba9\u300c\u8fd9\u5f20\u7801\u88ab\u51e0\u4e2a\u4eba\u7528\u4e86\u300d\u8fd9\u4e2a\u6570\u4ece\u4e00\u5f00\u59cb\u5c31\u6ca1\u6709\u610f\u4e49)\u3002",
+                "operationId": "my_referral_auth_referral_get",
+                "parameters": [
+                    {
+                        "name": "authorization",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "",
+                            "title": "Authorization"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ReferralResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Create My Referral",
+                "description": "\u751f\u6210\u6211\u7684\u666e\u901a\u9080\u8bf7\u7801\u3002**\u5e42\u7b49** \u2014\u2014 \u5df2\u7ecf\u6709\u4e86\u5c31\u539f\u6837\u8fd4\u56de\u90a3\u4e00\u5f20,\u4e0d\u518d\u94f8\u65b0\u7684\u3002\n\n\u4e3a\u4ec0\u4e48\u5e42\u7b49\u800c\u4e0d\u662f\u6bcf\u6b21\u65b0\u94f8:\u4e00\u4e2a\u4eba\u591a\u5f20\u7801\u4f1a\u8ba9\"\u88ab\u51e0\u4e2a\u4eba\u7528\u4e86\"\u5931\u53bb\u610f\u4e49,\u4e5f\u8ba9\u4ed6\u5df2\u7ecf\u53d1\u51fa\u53bb\u7684\u90a3\u5f20\n\u968f\u65f6\u4f5c\u5e9f\u3002\n\n**\u6ca1\u5151\u8fc7\u7801\u7684\u514d\u8d39\u7528\u6237\u4e5f\u80fd\u53d1**(\u9636\u68af\u7b2c\u4e00\u7ea7\u5c31\u662f\"\u9080 3 \u4e2a\u4eba\u5347\u5230 basic\"),\u4ed6\u90a3\u5f20\u7801\u6307\u5411\u56fa\u5b9a\u7684\n\u5165\u95e8\u79df\u6237,\u5151\u7684\u4eba\u62ff\u5230\u5165\u95e8\u6388\u4fe1 \u2014\u2014 \u89c1 `AuthService._referral_code_tenant`\u3002\u5269\u4e0b\u7684 409 \u53ea\u53ef\u80fd\u662f\n\u5165\u95e8\u79df\u6237\u6ca1\u6388\u4fe1\u8fd9\u4e00\u79cd**\u914d\u7f6e\u4e8b\u6545**:\u90a3\u79cd\u7801\u5151\u4e86\u4ec0\u4e48\u90fd\u62ff\u4e0d\u5230,\u53d1\u51fa\u53bb\u6bd4\u5f53\u573a\u62d2\u7edd\u66f4\u96be\u67e5\u3002",
+                "operationId": "create_my_referral_auth_referral_post",
+                "parameters": [
+                    {
+                        "name": "authorization",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "",
+                            "title": "Authorization"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ReferralResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/tenant": {
+            "get": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "My Tenant",
+                "description": "\u5f53\u524d\u7528\u6237\u7684 active \u79df\u6237\u4e0e\u6388\u4fe1\u3002\u672a\u542f\u7528\u79df\u6237\u6a21\u578b \u2192 \u5168\u7a7a\u5b57\u6bb5(\u5ba2\u6237\u7aef\u6309\"\u65e0\u6388\u4fe1\u4fe1\u606f\"\u5904\u7406)\u3002",
+                "operationId": "my_tenant_auth_tenant_get",
+                "parameters": [
+                    {
+                        "name": "authorization",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "",
+                            "title": "Authorization"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TenantResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/oauth/providers": {
+            "get": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Oauth Providers",
+                "description": "\u5df2\u542f\u7528(\u914d\u597d\u51ed\u636e)\u7684\u4e09\u65b9\u767b\u5f55\u65b9\u5f0f\u5217\u8868\u2014\u2014\u4ea7\u54c1\u4fa7\u636e\u6b64\u6e32\u67d3\u767b\u5f55\u6309\u94ae,\u96f6\u914d\u7f6e\u611f\u77e5\u3002",
+                "operationId": "oauth_providers_auth_oauth_providers_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": true,
+                                    "type": "object",
+                                    "title": "Response Oauth Providers Auth Oauth Providers Get"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/oauth/{provider}/login": {
+            "get": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Oauth Login Redirect",
+                "description": "\u4e09\u65b9\u767b\u5f55\u7b2c\u4e00\u8df3:302 \u53bb IdP \u540c\u610f\u9875\u3002`redirect_uri` = \u767b\u5f55\u6210\u529f\u540e\u56de\u5230\u54ea\n(loopback \u4e0e\u7b2c\u4e00\u65b9\u57df *.mirofish.ai \u6052\u653e\u884c,\u4fbf\u4e8e CLI/\u672c\u5730 dev \u4e0e\u4e0a\u5c42\u4ea7\u54c1;\n\u5176\u4f59\u524d\u7f00\u7ecf OAUTH_REDIRECT_ALLOWLIST \u767b\u8bb0,\u9632\u5f00\u653e\u8df3\u8f6c)\u3002",
+                "operationId": "oauth_login_redirect_auth_oauth__provider__login_get",
+                "parameters": [
+                    {
+                        "name": "provider",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Provider"
+                        }
+                    },
+                    {
+                        "name": "redirect_uri",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "",
+                            "title": "Redirect Uri"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/oauth/{provider}/callback": {
+            "get": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Oauth Callback",
+                "description": "\u4e09\u65b9\u767b\u5f55\u56de\u8df3:\u6362\u7801 \u2192 \u9a8c\u660e\u8eab\u4efd \u2192 identities \u8bb0\u8d26(\u5165\u53e3\u6765\u6e90\u5ba1\u8ba1)\u2192 \u7b7e\u53d1\u540c\u6b3e token\u3002\n\u4ea4\u4ed8\u65b9\u5f0f:redirect_uri \u4e3a loopback \u2192 \u8d70 query(CLI \u76f4\u8bfb);\u5176\u4f59 \u2192 \u8d70 URL fragment\n(\u4e0d\u8fdb\u5bf9\u7aef\u670d\u52a1\u5668\u65e5\u5fd7);\u672a\u7ed9 redirect_uri \u2192 \u51fa\u4e00\u9875\u590d\u5236\u9875(dev \u4fbf\u5229)\u3002\n\u5931\u8d25(IdP \u62d2\u7edd / \u6362\u7801\u6216\u767b\u5f55\u5931\u8d25)\u540c\u6837\u56de\u8df3 redirect_uri \u4f46\u5e26 error \u53c2\u6570(\u4e0e\u6210\u529f\u5bf9\u79f0),\n\u8ba9\u524d\u7aef\u63a5\u7ba1\u5c55\u793a;\u65e0\u53ef\u4fe1 redirect_uri \u65f6\u7ef4\u6301\u88f8\u9519\u8bef(\u89c1 #138)\u3002",
+                "operationId": "oauth_callback_auth_oauth__provider__callback_get",
+                "parameters": [
+                    {
+                        "name": "provider",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Provider"
+                        }
+                    },
+                    {
+                        "name": "code",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "",
+                            "title": "Code"
+                        }
+                    },
+                    {
+                        "name": "state",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "",
+                            "title": "State"
+                        }
+                    },
+                    {
+                        "name": "error",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "",
+                            "title": "Error"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/me": {
+            "get": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Me",
+                "description": "\u9700 access token \u7684\u53d7\u4fdd\u62a4\u7aef\u70b9(\u8ba4\u8bc1)\u3002",
+                "operationId": "me_auth_me_get",
+                "parameters": [
+                    {
+                        "name": "authorization",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "",
+                            "title": "Authorization"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/admin": {
+            "get": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Admin Only",
+                "description": "\u9700 admin \u89d2\u8272\u7684\u53d7\u4fdd\u62a4\u7aef\u70b9(\u6388\u6743\u793a\u4f8b)\u3002",
+                "operationId": "admin_only_auth_admin_get",
+                "parameters": [
+                    {
+                        "name": "authorization",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "",
+                            "title": "Authorization"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/tokens": {
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Create Access Token",
+                "description": "\u94f8\u4e00\u628a PAT(\u660e\u6587\u53ea\u6b64\u4e00\u6b21\u8fd4\u56de)\u3002\u62ff\u5b83\u5f53 Bearer \u8c03\u4efb\u610f\u63a5\u53e3\u5373\u6309\u672c\u8d26\u53f7\u6388\u6743\u3002\n\n[issue #76] \u6cbb\u7406:scope \u2208 {read,write}(\u9ed8\u8ba4 write,\u517c\u5bb9\u65e2\u6709 MCP);\u6709\u6548\u671f\u53bb\u6c38\u4e45\u9ed8\u8ba4 \u2014\u2014\n\u4e0d\u7ed9\u5373 90 \u5929\u5230\u671f,0 \u624d\u662f\u663e\u5f0f\u6c38\u4e45,\u8d1f\u503c\u62d2\u3002",
+                "operationId": "create_access_token_auth_tokens_post",
+                "parameters": [
+                    {
+                        "name": "authorization",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "",
+                            "title": "Authorization"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateTokenRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CreatedTokenOut"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "List Access Tokens",
+                "operationId": "list_access_tokens_auth_tokens_get",
+                "parameters": [
+                    {
+                        "name": "authorization",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "",
+                            "title": "Authorization"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/AccessTokenOut"
+                                    },
+                                    "title": "Response List Access Tokens Auth Tokens Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/tokens/{token_id}": {
+            "delete": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Revoke Access Token",
+                "description": "\u540a\u9500\u4ee4\u724c:owner \u540a\u9500\u81ea\u5df1\u7684;admin \u53ef\u540a\u9500\u4efb\u610f owner \u7684(\u8de8\u7528\u6237\u96c6\u4e2d\u540a\u9500,issue #76)\u3002",
+                "operationId": "revoke_access_token_auth_tokens__token_id__delete",
+                "parameters": [
+                    {
+                        "name": "token_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Token Id"
+                        }
+                    },
+                    {
+                        "name": "authorization",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "",
+                            "title": "Authorization"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Successful Response"
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/admin/tokens": {
+            "get": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Admin List All Tokens",
+                "description": "[admin] \u5217\u51fa\u5168\u90e8\u6210\u5458\u7684\u4ee4\u724c(\u542b owner \u8eab\u4efd)\u2014\u2014 \u8de8\u7528\u6237\u5ba1\u8ba1 + \u96c6\u4e2d\u540a\u9500\u5165\u53e3\u3002",
+                "operationId": "admin_list_all_tokens_auth_admin_tokens_get",
+                "parameters": [
+                    {
+                        "name": "authorization",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "",
+                            "title": "Authorization"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/AdminTokenOut"
+                                    },
+                                    "title": "Response Admin List All Tokens Auth Admin Tokens Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/token-policy": {
+            "get": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Get Token Policy",
+                "description": "\u8bfb\u5b9e\u4f8b\u4ee4\u724c\u7b56\u7565(\u4efb\u4f55\u767b\u5f55\u7528\u6237\u53ef\u8bfb \u2014\u2014 \u524d\u7aef\u636e\u6b64\u663e\u793a\u8fb9\u754c\u63d0\u793a)\u3002",
+                "operationId": "get_token_policy_auth_token_policy_get",
+                "parameters": [
+                    {
+                        "name": "authorization",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "",
+                            "title": "Authorization"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TokenPolicyOut"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Set Token Policy",
+                "description": "[admin] \u8bbe\u5b9e\u4f8b\u4ee4\u724c\u7b56\u7565(\u5f3a\u5236\u666e\u901a\u6210\u5458\u53ea\u8bfb)\u3002",
+                "operationId": "set_token_policy_auth_token_policy_put",
+                "parameters": [
+                    {
+                        "name": "authorization",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "",
+                            "title": "Authorization"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SetTokenPolicyRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TokenPolicyOut"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/healthz": {
+            "get": {
+                "summary": "Health",
+                "description": "\u672c\u5730\u5e94\u7b54,\u4e0d\u67e5\u5e93\u4e0d\u67e5 Redis \u2014\u2014 \u63a2\u6d3b\u6302\u5728\u4f9d\u8d56\u4e0a\u4f1a\u628a\u300c\u4e0b\u6e38\u6162\u300d\u653e\u5927\u6210\u300c\u5168\u90e8\u526f\u672c\u88ab\u6740\u300d\u3002\n\u54cd\u5e94\u4f53\u4e0e mirofish backend \u9010\u5b57\u540c\u5f62,\u514d\u5f97\u4e24\u8fb9\u5bf9\u62cd\u65f6\u8981\u4e3a\u63a2\u6d3b\u5199\u7279\u4f8b\u3002",
+                "operationId": "health_healthz_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": true,
+                                    "type": "object",
+                                    "title": "Response Health Healthz Get"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/health": {
+            "get": {
+                "summary": "Health",
+                "description": "\u672c\u5730\u5e94\u7b54,\u4e0d\u67e5\u5e93\u4e0d\u67e5 Redis \u2014\u2014 \u63a2\u6d3b\u6302\u5728\u4f9d\u8d56\u4e0a\u4f1a\u628a\u300c\u4e0b\u6e38\u6162\u300d\u653e\u5927\u6210\u300c\u5168\u90e8\u526f\u672c\u88ab\u6740\u300d\u3002\n\u54cd\u5e94\u4f53\u4e0e mirofish backend \u9010\u5b57\u540c\u5f62,\u514d\u5f97\u4e24\u8fb9\u5bf9\u62cd\u65f6\u8981\u4e3a\u63a2\u6d3b\u5199\u7279\u4f8b\u3002",
+                "operationId": "health_health_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": true,
+                                    "type": "object",
+                                    "title": "Response Health Health Get"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "AccessTokenOut": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "name": {
+                        "type": "string",
+                        "title": "Name"
+                    },
+                    "prefix": {
+                        "type": "string",
+                        "title": "Prefix"
+                    },
+                    "scope": {
+                        "type": "string",
+                        "title": "Scope",
+                        "default": "write"
+                    },
+                    "resources": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Resources",
+                        "default": []
+                    },
+                    "created_at": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Created At"
+                    },
+                    "last_used_at": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Last Used At"
+                    },
+                    "expires_at": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Expires At"
+                    },
+                    "revoked": {
+                        "type": "boolean",
+                        "title": "Revoked",
+                        "default": false
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "name",
+                    "prefix"
+                ],
+                "title": "AccessTokenOut"
+            },
+            "AdminTokenOut": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "name": {
+                        "type": "string",
+                        "title": "Name"
+                    },
+                    "prefix": {
+                        "type": "string",
+                        "title": "Prefix"
+                    },
+                    "scope": {
+                        "type": "string",
+                        "title": "Scope",
+                        "default": "write"
+                    },
+                    "resources": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Resources",
+                        "default": []
+                    },
+                    "created_at": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Created At"
+                    },
+                    "last_used_at": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Last Used At"
+                    },
+                    "expires_at": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Expires At"
+                    },
+                    "revoked": {
+                        "type": "boolean",
+                        "title": "Revoked",
+                        "default": false
+                    },
+                    "owner_id": {
+                        "type": "string",
+                        "title": "Owner Id"
+                    },
+                    "owner_email": {
+                        "type": "string",
+                        "title": "Owner Email",
+                        "default": ""
+                    },
+                    "owner_name": {
+                        "type": "string",
+                        "title": "Owner Name",
+                        "default": ""
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "name",
+                    "prefix",
+                    "owner_id"
+                ],
+                "title": "AdminTokenOut"
+            },
+            "CreateTokenRequest": {
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "title": "Name",
+                        "default": ""
+                    },
+                    "expires_in_days": {
+                        "anyOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Expires In Days"
+                    },
+                    "scope": {
+                        "type": "string",
+                        "title": "Scope",
+                        "default": "write"
+                    },
+                    "resources": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Resources",
+                        "default": []
+                    }
+                },
+                "type": "object",
+                "title": "CreateTokenRequest"
+            },
+            "CreatedTokenOut": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "name": {
+                        "type": "string",
+                        "title": "Name"
+                    },
+                    "prefix": {
+                        "type": "string",
+                        "title": "Prefix"
+                    },
+                    "scope": {
+                        "type": "string",
+                        "title": "Scope",
+                        "default": "write"
+                    },
+                    "resources": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Resources",
+                        "default": []
+                    },
+                    "created_at": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Created At"
+                    },
+                    "last_used_at": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Last Used At"
+                    },
+                    "expires_at": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Expires At"
+                    },
+                    "revoked": {
+                        "type": "boolean",
+                        "title": "Revoked",
+                        "default": false
+                    },
+                    "token": {
+                        "type": "string",
+                        "title": "Token"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "name",
+                    "prefix",
+                    "token"
+                ],
+                "title": "CreatedTokenOut"
+            },
+            "HTTPValidationError": {
+                "properties": {
+                    "detail": {
+                        "items": {
+                            "$ref": "#/components/schemas/ValidationError"
+                        },
+                        "type": "array",
+                        "title": "Detail"
+                    }
+                },
+                "type": "object",
+                "title": "HTTPValidationError"
+            },
+            "LoginRequest": {
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "title": "Email"
+                    },
+                    "password": {
+                        "type": "string",
+                        "title": "Password"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "email",
+                    "password"
+                ],
+                "title": "LoginRequest"
+            },
+            "RedeemInviteRequest": {
+                "properties": {
+                    "code": {
+                        "type": "string",
+                        "title": "Code"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "code"
+                ],
+                "title": "RedeemInviteRequest"
+            },
+            "ReferralResponse": {
+                "properties": {
+                    "code": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Code"
+                    },
+                    "redeemed": {
+                        "type": "integer",
+                        "title": "Redeemed",
+                        "default": 0
+                    },
+                    "threshold": {
+                        "type": "integer",
+                        "title": "Threshold",
+                        "default": 0
+                    },
+                    "remaining": {
+                        "type": "integer",
+                        "title": "Remaining",
+                        "default": 0
+                    },
+                    "reached": {
+                        "type": "boolean",
+                        "title": "Reached",
+                        "default": false
+                    },
+                    "max_redemptions": {
+                        "type": "integer",
+                        "title": "Max Redemptions",
+                        "default": 0
+                    },
+                    "current_plan": {
+                        "type": "string",
+                        "title": "Current Plan",
+                        "default": ""
+                    },
+                    "plan_expires_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Plan Expires At"
+                    },
+                    "next_plan": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Next Plan"
+                    }
+                },
+                "type": "object",
+                "title": "ReferralResponse",
+                "description": "\u4e00\u4e2a\u4eba\u7684\u88c2\u53d8\u8fdb\u5ea6 \u2014\u2014 \u5ba2\u6237\u7aef\u8d26\u53f7\u9875\u90a3\u5757\u677f\u5b50\u8981\u7684\u5168\u90e8\u4e8b\u5b9e\u3002\n\n\u4e0e**\u6e20\u9053\u7801**\u65e0\u5173:\u6e20\u9053\u7801\u53d1\u7ed9\u7ea2\u4eba\u3001\u8d34\u516c\u7f51\u3001\u53ea\u505a\u6eaf\u6e90\u3001\u4e0d\u7ed1\u8d26\u53f7\u3001\u6ca1\u6709\u88c2\u53d8\u3002\u8fd9\u91cc\u62a5\u7684\u662f\u8fd9\u4e2a\u4eba\n**\u81ea\u5df1\u90a3\u5f20**\u666e\u901a\u9080\u8bf7\u7801\u3002"
+            },
+            "RefreshRequest": {
+                "properties": {
+                    "refresh_token": {
+                        "type": "string",
+                        "title": "Refresh Token"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "refresh_token"
+                ],
+                "title": "RefreshRequest"
+            },
+            "RegisterRequest": {
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "title": "Email"
+                    },
+                    "password": {
+                        "type": "string",
+                        "title": "Password"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "email",
+                    "password"
+                ],
+                "title": "RegisterRequest"
+            },
+            "SendCodeRequest": {
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "title": "Email"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "email"
+                ],
+                "title": "SendCodeRequest"
+            },
+            "SendCodeResponse": {
+                "properties": {
+                    "sent": {
+                        "type": "boolean",
+                        "title": "Sent",
+                        "default": true
+                    },
+                    "dev_code": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Dev Code"
+                    }
+                },
+                "type": "object",
+                "title": "SendCodeResponse"
+            },
+            "SetTokenPolicyRequest": {
+                "properties": {
+                    "force_member_read_only": {
+                        "type": "boolean",
+                        "title": "Force Member Read Only"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "force_member_read_only"
+                ],
+                "title": "SetTokenPolicyRequest"
+            },
+            "TenantResponse": {
+                "properties": {
+                    "tenant": {
+                        "type": "string",
+                        "title": "Tenant",
+                        "default": ""
+                    },
+                    "plan": {
+                        "type": "string",
+                        "title": "Plan",
+                        "default": ""
+                    },
+                    "kind": {
+                        "type": "string",
+                        "title": "Kind",
+                        "default": ""
+                    },
+                    "needs_invite": {
+                        "type": "boolean",
+                        "title": "Needs Invite",
+                        "default": false
+                    }
+                },
+                "type": "object",
+                "title": "TenantResponse",
+                "description": "\u5f53\u524d\u7528\u6237\u7684\u6388\u4fe1\u6001 \u2014\u2014 \u5ba2\u6237\u7aef\u636e\u6b64\u51b3\u5b9a\u5f15\u5bfc\u4ec0\u4e48(\u8981\u4e0d\u8981\u63d0\u793a\u8d34\u7801\u3001\u80fd\u4e0d\u80fd\u7528\u4e2d\u8f6c)\u3002"
+            },
+            "TokenPolicyOut": {
+                "properties": {
+                    "force_member_read_only": {
+                        "type": "boolean",
+                        "title": "Force Member Read Only",
+                        "default": false
+                    }
+                },
+                "type": "object",
+                "title": "TokenPolicyOut"
+            },
+            "TokenResponse": {
+                "properties": {
+                    "access_token": {
+                        "type": "string",
+                        "title": "Access Token"
+                    },
+                    "refresh_token": {
+                        "type": "string",
+                        "title": "Refresh Token"
+                    },
+                    "token_type": {
+                        "type": "string",
+                        "title": "Token Type",
+                        "default": "bearer"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "access_token",
+                    "refresh_token"
+                ],
+                "title": "TokenResponse"
+            },
+            "UserResponse": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "email": {
+                        "type": "string",
+                        "title": "Email"
+                    },
+                    "name": {
+                        "type": "string",
+                        "title": "Name",
+                        "default": ""
+                    },
+                    "roles": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Roles"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "email",
+                    "roles"
+                ],
+                "title": "UserResponse"
+            },
+            "ValidationError": {
+                "properties": {
+                    "loc": {
+                        "items": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "integer"
+                                }
+                            ]
+                        },
+                        "type": "array",
+                        "title": "Location"
+                    },
+                    "msg": {
+                        "type": "string",
+                        "title": "Message"
+                    },
+                    "type": {
+                        "type": "string",
+                        "title": "Error Type"
+                    },
+                    "input": {
+                        "title": "Input"
+                    },
+                    "ctx": {
+                        "type": "object",
+                        "title": "Context"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "loc",
+                    "msg",
+                    "type"
+                ],
+                "title": "ValidationError"
+            },
+            "VerifyCodeRequest": {
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "title": "Email"
+                    },
+                    "code": {
+                        "type": "string",
+                        "title": "Code"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "email",
+                    "code"
+                ],
+                "title": "VerifyCodeRequest"
+            }
+        }
+    }
+}

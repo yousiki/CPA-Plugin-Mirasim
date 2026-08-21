@@ -68,7 +68,7 @@ plugins:
 
 | Key | Default | Notes |
 | --- | --- | --- |
-| `login_url` | `https://admin.test.mirofish.ai` | Mirofish auth backend; note it is the **staging** host. |
+| `login_url` | `https://auth.mirasim.ai` | Mirofish auth backend. The former hosts (`admin.test.mirofish.ai`, `admin.mirofish.ai`) were retired 2026-08-21 and answer 403; the spec is at `/openapi.json` (copy in `testing/mirasim-auth-openapi.json`). |
 | `relay_url` | `https://mirasim-relay.mirofish.ai` | Anthropic-compatible gateway. |
 | `public_base_url` | — | **Required in practice.** The host hands `auth.login.start` a `127.0.0.1` URL, which a remote browser cannot open. |
 | `model_ids` | built-in list | `id[:contextLength],…` overrides the catalogue. |
