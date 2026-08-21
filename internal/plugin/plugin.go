@@ -126,7 +126,7 @@ func Registration() registration {
 			Logo:             config.Logo,
 			ConfigFields: []pluginapi.ConfigField{
 				{Name: "login_url", Type: pluginapi.ConfigFieldTypeString, Description: "Mirofish auth backend base URL. Default https://auth.mirasim.ai (the retired admin.test.mirofish.ai host answers 403 since 2026-08-21)."},
-				{Name: "relay_url", Type: pluginapi.ConfigFieldTypeString, Description: "Mirasim relay base URL serving the Anthropic Messages API. Default https://mirasim-relay.mirofish.ai."},
+				{Name: "relay_url", Type: pluginapi.ConfigFieldTypeString, Description: "Mirasim relay base URL serving the Anthropic Messages API. Default https://relay.mirasim.ai (the old mirasim-relay.mirofish.ai rejects tokens from the current auth host)."},
 				{Name: "public_base_url", Type: pluginapi.ConfigFieldTypeString, Description: "Externally reachable base URL of this CPA instance, e.g. https://api.example.com. Required for the login page link to be openable from a remote browser."},
 				{Name: "model_ids", Type: pluginapi.ConfigFieldTypeString, Description: "Override the advertised catalogue: \"id[:contextLength],...\". Empty uses the built-in verified list."},
 				{Name: "console_token", Type: pluginapi.ConfigFieldTypeString, Description: "Shared secret guarding the plugin status console. The console route is unauthenticated by design, so it returns 403 until this is set."},

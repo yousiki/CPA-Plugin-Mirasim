@@ -20,7 +20,7 @@ const PluginID = "mirasim"
 
 // Version is the single source of truth for the plugin version; the Makefile scrapes it
 // out of this file, so keep the `const Version = "..."` form on one line.
-const Version = "0.3.1"
+const Version = "0.3.2"
 
 // ModelSpec is one advertised model id and its context window.
 type ModelSpec struct {
@@ -82,7 +82,9 @@ func Default() Config {
 		// 2026-08-21 and answer 403 to every /auth/* login call; this is the address
 		// their retirement notice names. Same protocol, spec at /openapi.json.
 		LoginURL: "https://auth.mirasim.ai",
-		RelayURL: "https://mirasim-relay.mirofish.ai",
+		// The old relay (mirasim-relay.mirofish.ai) rejects JWTs minted by the new auth
+		// host with 401, verified against a freshly logged-in credential on 2026-08-21.
+		RelayURL: "https://relay.mirasim.ai",
 		// Access tokens live ~1h. The host refresh loop needs an interval to claim the
 		// credential at all, so refresh well before expiry rather than at the edge.
 		RefreshIntervalSeconds: 1500,
